@@ -28,12 +28,8 @@ const STRIP = [...tour.strip.slice(0, 2), tour.strip[HERO_INDEX], ...tour.strip.
 const MAX_ZONE = Math.max(...tour.categories.map((c) => c.count));
 const DESTINATIONS = ["Web and mobile", "Google Maps", "VR headset"];
 
-const TEAM = [
-  { name: "Capture", color: "#74b94e" },
-  { name: "Stitch", color: "#f89833" },
-  { name: "Hotspots", color: "#ffd700" },
-  { name: "Brand", color: "#ffffff" },
-];
+// Light tints the dotted holder takes on, by what it is wrapped around.
+const TINT = { stop: "#a8dc8a", photo: "#ffe27a", slider: "#ffc48a", hotspot: "#ffb37a", detail: "#e6edf2", brand: "#fbd277", publish: "#a8dc8a" };
 
 const ICONS = [
   <g key="0"><path d="M8 14s4.5-4 4.5-7.5a4.5 4.5 0 0 0-9 0C3.5 10 8 14 8 14z" /><circle cx="8" cy="6.5" r="1.5" /></g>,
@@ -132,14 +128,23 @@ export default function BuildSection() {
       ctx = gsap.context(() => {
         // Measure cursor targets before anything is moved.
         const pins = q(".pin").map(rect);
-        const thumbs = q(".thumb-box").map(rect).filter((t) => t.x + t.w <= W - 4);
+        type Box = { x: number; y: number; w: number; h: number; cx: number; cy: number };
+        const box = (cx: number, cy: number, w: number, h: number): Box => ({ x: cx - w / 2, y: cy - h / 2, w, h, cx, cy });
+        // Each pin's dot and label together, so the holder can wrap the whole thing.
+        const pinBoxes = q(".pin").map((el) => {
+          const rs = [...el.children].filter((c) => !c.classList.contains("pin-ring")).map(rect);
+          const x0 = Math.min(...rs.map((r) => r.x)), y0 = Math.min(...rs.map((r) => r.y));
+          const x1 = Math.max(...rs.map((r) => r.x + r.w)), y1 = Math.max(...rs.map((r) => r.y + r.h));
+          return box((x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0);
+        });
+        const ppu = Math.min((S.cell.w * 0.9) / (2 * Math.PI), (S.cell.h * 0.82) / Math.PI);
+        const photo = box(mid.cx, mid.cy, 2 * Math.PI * ppu, Math.PI * ppu);
         const thumb = rect(q(".thumb-hero .thumb-box")[0]);
         const publish = rect(q(".publish")[0]);
         const side = rect(q(desktop ? ".chrome-right" : ".huds")[0]);
         const track = rect(q(desktop ? ".insp-2 .bar-track" : ".hud-2 .bar-track")[0]);
         const rows = desktop ? q(".hs-row").map(rect) : SPOTS.map(() => side);
-        const swatch = desktop ? rect(q(".swatch")[0]) : at(cell.x + 76, cell.y + 44);
-        const corner = desktop ? at(rect(q(".chrome-left")[0]).cx, cell.y + cell.h - 40) : at(cell.x + 56, cell.y + cell.h * 0.45);
+        const swatch = desktop ? rect(q(".swatch")[0]) : box(cell.x + 68, cell.y + 36, 112, 48);
         S.thumb = { cx: thumb.cx, cy: thumb.cy, w: thumb.w };
         const clipCell = `inset(${cell.y}px ${W - cell.x - cell.w}px ${H - cell.y - cell.h}px ${cell.x}px)`;
         const bars = [...sec.querySelectorAll<HTMLElement>(".prog")];
@@ -147,15 +152,18 @@ export default function BuildSection() {
         gsap.set(q(".pin, .hs"), { scale: 0, autoAlpha: 0 });
         gsap.set(q(".link"), { strokeDashoffset: 1 });
         gsap.set(q(".thumb img, .thumb figcaption"), { autoAlpha: 0, y: 10 });
-        gsap.set(q(".insp:not(.insp-0), .cap:not(.cap-0), .hud:not(.hud-0), .hs-row, .hs-prev, .skin, .skin-on, .published, .hint, .thumb-ring, .click, .reticle, .dest-check"), { autoAlpha: 0 });
+        gsap.set(q(".insp:not(.insp-0), .cap:not(.cap-0), .hud:not(.hud-0), .hs-row, .hs-prev, .skin, .skin-on, .published, .hint, .thumb-ring, .click, .reticle"), { autoAlpha: 0 });
+        gsap.set(q(".dest-check"), { autoAlpha: 0, scale: 0.4 });
         gsap.set(q(".skin"), { left: cell.x, top: cell.y, width: cell.w, height: cell.h });
         gsap.set(q(".bar, .zone-bar"), { scaleX: 0 });
         gsap.set(q(".view"), { clipPath: "inset(0px 0px 0px 0px)" });
-        // The team starts spread around the editor.
-        [at(mid.cx + 70, mid.cy + 90), at(cell.x + 60, cell.y + cell.h * 0.6), at(side.cx, side.cy), at(cell.x + cell.w - 80, cell.y + 80)].forEach((p, k) =>
-          gsap.set(q(`.cur-${k}`), { x: p.cx, y: p.cy }),
-        );
+        gsap.set(q(".thumb img"), { filter: "blur(6px)", scale: 0.92 });
+        gsap.set(q(".holder, .scan, .pin-ring, .hs-ring, .flash, .live-ring, .click2"), { autoAlpha: 0 });
+        gsap.set(q(".cur"), { x: mid.cx + 70, y: mid.cy + 90 });
+        gsap.set(q(".arrow"), { transformOrigin: "0% 0%" });
 
+        const labels: [number, string][] = [];
+        const tag = q(".holder-tag")[0];
         const count = { pan: 0, hs: 0, zones: 0 };
         const write = (sel: string, v: number) => q(sel).forEach((el) => (el.textContent = String(Math.round(v))));
 
@@ -170,6 +178,9 @@ export default function BuildSection() {
               const n = Number(el.dataset.i);
               el.style.transform = `scaleX(${Math.max(0, Math.min(1, (now - T[n]) / (T[n + 1] - T[n])))})`;
             });
+            let text = "";
+            for (const [when, name] of labels) if (when <= now) text = name;
+            if (tag && tag.textContent !== text) tag.textContent = text;
             const live = now > T[4] + 3.6;
             if (live !== S.live) {
               S.live = live;
@@ -185,101 +196,133 @@ export default function BuildSection() {
         t.timeScale(SPEED);
         tl = t;
 
-        // k = which team member: 0 Capture, 1 Stitch, 2 Hotspots, 3 Brand
-        const go = (k: number, p: { cx: number; cy: number }, when: number, d = 0.5, dx = 0, dy = 0) =>
-          t.to(q(`.cur-${k}`), { x: p.cx + dx, y: p.cy + dy, duration: d, ease: "power2.inOut" }, when);
-        const click = (k: number, when: number) =>
-          t.fromTo(q(`.cur-${k} .click`), { scale: 0.3, autoAlpha: 0.9 }, { scale: 1.7, autoAlpha: 0, duration: 0.3, ease: "power1.out" }, when);
+        // One cursor does the work. It travels on a curve and leans into each move.
+        let pos = at(mid.cx + 70, mid.cy + 90);
+        const move = (p: { cx: number; cy: number }, when: number, d = 0.5, dx = 0, dy = 0) => {
+          const to = at(p.cx + dx, p.cy + dy);
+          const lean = Math.max(-10, Math.min(10, (to.cx - pos.cx) / 30));
+          // Different easing on each axis bends the path into an arc.
+          t.to(q(".cur"), { x: to.cx, duration: d, ease: "power3.inOut" }, when);
+          t.to(q(".cur"), { y: to.cy, duration: d, ease: "sine.inOut" }, when);
+          t.to(q(".arrow"), { rotation: lean, duration: d * 0.45, ease: "sine.out" }, when);
+          t.to(q(".arrow"), { rotation: 0, duration: d * 0.55, ease: "back.out(2)" }, when + d * 0.45);
+          pos = to;
+        };
+        const click = (when: number) => {
+          t.to(q(".arrow"), { scale: 0.78, duration: 0.07, ease: "power2.in" }, when - 0.05);
+          t.to(q(".arrow"), { scale: 1, duration: 0.25, ease: "back.out(3)" }, when + 0.02);
+          t.fromTo(q(".click"), { scale: 0.3, autoAlpha: 0.9 }, { scale: 1.7, autoAlpha: 0, duration: 0.3, ease: "power1.out" }, when);
+          t.fromTo(q(".click2"), { scale: 0.3, autoAlpha: 0.5 }, { scale: 3, autoAlpha: 0, duration: 0.5, ease: "power2.out" }, when + 0.04);
+        };
+        // The dotted holder morphs from one element to the next and takes that element's tint.
+        const hold = (b: Box, color: string, name: string, when: number, d = 0.45, ease = "power3.inOut") => {
+          const pad = 6;
+          t.to(q(".holder"), { x: b.x - pad, y: b.y - pad, width: b.w + pad * 2, height: b.h + pad * 2, color, autoAlpha: 1, duration: d, ease }, when);
+          labels.push([when + d * 0.4, name]);
+        };
+        const ring = (els: Element | Element[] | NodeListOf<Element>, when: number, to = 3) =>
+          t.fromTo(els, { scale: 0.5, autoAlpha: 0.9 }, { scale: to, autoAlpha: 0, duration: 0.6, ease: "power2.out", stagger: 0.12 }, when);
         // Swap the side panel, the caption and the phone readout together.
         const swap = (from: number, to: number, when: number) => {
-          t.to(q(`.insp-${from}, .cap-${from}, .hud-${from}`), { autoAlpha: 0, y: -8, duration: 0.3 }, when);
-          t.fromTo(q(`.insp-${to}, .cap-${to}, .hud-${to}`), { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.4 }, when + 0.2);
+          t.to(q(`.insp-${from}, .cap-${from}, .hud-${from}`), { autoAlpha: 0, y: -8, filter: "blur(6px)", duration: 0.3 }, when);
+          t.fromTo(q(`.insp-${to}, .cap-${to}, .hud-${to}`), { autoAlpha: 0, y: 12, filter: "blur(6px)" }, { autoAlpha: 1, y: 0, filter: "blur(0px)", duration: 0.45 }, when + 0.2);
         };
-        const pickThumb = (n: number) => thumbs[n % Math.max(1, thumbs.length)] ?? thumb;
 
-        // 1. Plan: three people drop pins on the drone map at once
-        t.to(count, { pan: tour.stats.panoramas, duration: 2.8, ease: "none", onUpdate: () => write(".n-pan", count.pan) }, 0.4);
+        // 1. Plan: a scan sweeps the drone map, then the camera stops are dropped one by one
+        t.fromTo(q(".scan"), { top: "0%", autoAlpha: 1 }, { top: "100%", duration: 1.3, ease: "power1.inOut" }, 0.05);
+        t.to(q(".scan"), { autoAlpha: 0, duration: 0.2 }, 1.25);
+        t.to(count, { pan: tour.stats.panoramas, duration: 2.9, ease: "none", onUpdate: () => write(".n-pan", count.pan) }, 0.4);
         t.to(q(".zone-bar"), { scaleX: 1, duration: 0.5, stagger: 0.12, ease: "power2.out" }, 0.5);
-        const pinTeam = [0, 1, 3];
+        gsap.set(q(".holder"), { x: pinBoxes[0].x, y: pinBoxes[0].y, width: pinBoxes[0].w, height: pinBoxes[0].h, color: TINT.stop });
         pins.forEach((p, i) => {
-          const when = 0.35 + i * 0.42, k = pinTeam[i % 3];
-          go(k, p, when, 0.5);
-          click(k, when + 0.5);
-          t.to(q(".pin")[i], { scale: 1, autoAlpha: 1, duration: 0.22, ease: "back.out(2.4)" }, when + 0.5);
-          t.to(q(".link")[i], { strokeDashoffset: 0, duration: 0.4, ease: "power1.inOut" }, when + 0.54);
+          const when = 0.3 + i * 0.5;
+          move(p, when, 0.38);
+          click(when + 0.38);
+          t.to(q(".pin")[i], { scale: 1, autoAlpha: 1, duration: 0.3, ease: "back.out(3)" }, when + 0.38);
+          ring(q(".pin")[i].querySelectorAll(".pin-ring"), when + 0.38, 3.4);
+          t.to(q(".link")[i], { strokeDashoffset: 0, duration: 0.4, ease: "power1.inOut" }, when + 0.42);
+          hold(pinBoxes[i], TINT.stop, "Camera stop", when + 0.34, 0.34, "back.out(1.4)");
         });
-        go(2, side, 0.5, 0.6, -30, -20);
-        go(2, side, 1.8, 0.8, 24, 30);
 
         // 2. Capture: the flat photos come in, one lifts out of the strip
         swap(0, 1, T[1]);
-        t.to(q(".thumb img, .thumb figcaption"), { autoAlpha: 1, y: 0, duration: 0.3, stagger: 0.04 }, T[1] + 0.05);
-        go(0, thumb, T[1] + 0.35, 0.5);
-        go(1, pickThumb(6), T[1] + 0.2, 0.6);
-        go(3, pickThumb(9), T[1] + 0.3, 0.6);
-        go(2, side, T[1] + 0.4, 0.6, 0, 10);
-        click(0, T[1] + 0.85);
+        t.to(q(".thumb img"), { autoAlpha: 1, y: 0, scale: 1, filter: "blur(0px)", duration: 0.4, stagger: 0.045 }, T[1] + 0.02);
+        t.to(q(".thumb figcaption"), { autoAlpha: 1, y: 0, duration: 0.3, stagger: 0.045 }, T[1] + 0.1);
+        move(thumb, T[1] + 0.3, 0.52);
+        hold(thumb, TINT.photo, "Flat photo", T[1] + 0.36, 0.46);
+        click(T[1] + 0.85);
         t.to(q(".thumb-ring"), { autoAlpha: 1, duration: 0.12 }, T[1] + 0.85);
-        t.to(q(".map"), { autoAlpha: 0, scale: 0.97, duration: 0.6, ease: "power1.inOut" }, T[1] + 0.85);
+        t.to(q(".map"), { autoAlpha: 0, scale: 0.97, filter: "blur(4px)", duration: 0.6, ease: "power1.inOut" }, T[1] + 0.85);
         t.to(S, { alpha: 1, duration: 0.12, ease: "none" }, T[1] + 0.9);
-        t.to(S, { fly: 1, duration: 1.15, ease: "power3.inOut" }, T[1] + 0.9);
-        go(0, at(cell.x + cell.w * 0.82, S.cell.y + S.cell.h * 0.86), T[1] + 1.2, 0.7);
+        t.to(S, { fly: 1, duration: 1.15, ease: "expo.inOut" }, T[1] + 0.9);
+        hold(photo, TINT.photo, "360° photo, still flat", T[1] + 0.9, 1.15, "expo.inOut");
+        move(at(photo.x + photo.w, photo.y + photo.h), T[1] + 0.95, 1.1, -14, -12);
 
-        // 3. Stitch: someone drags Flat to Sphere, the sheet curls and the camera steps inside
+        // 3. Stitch: the cursor drags Flat to Sphere, the sheet curls and the camera steps inside
         t.set(q(".view"), { clipPath: clipCell }, T[2]);
         swap(1, 2, T[2]);
-        go(1, at(track.x, track.cy), T[2] + 0.1, 0.5);
-        click(1, T[2] + 0.6);
-        t.to(q(".cur-1"), { x: track.x + track.w, duration: 3.1, ease: "power1.inOut" }, T[2] + 0.6);
+        move(at(track.x, track.cy), T[2] + 0.05, 0.55);
+        hold(box(track.cx, track.cy, track.w + 14, 26), TINT.slider, "Projection", T[2] + 0.12, 0.48);
+        click(T[2] + 0.6);
+        t.to(q(".cur"), { x: track.x + track.w, duration: 3.1, ease: "power1.inOut" }, T[2] + 0.6);
         t.to(q(".knob"), { left: "100%", duration: 3.1, ease: "power1.inOut" }, T[2] + 0.6);
+        t.to(q(".knob"), { scale: 1.3, duration: 0.2, ease: "back.out(3)" }, T[2] + 0.6);
+        t.to(q(".knob"), { scale: 1, duration: 0.3 }, T[2] + 3.7);
         t.to(q(".bar"), { scaleX: 1, duration: 3.1, ease: "power1.inOut" }, T[2] + 0.6);
-        go(0, at(cell.x + 56, S.cell.y + S.cell.h - 40), T[2] + 0.6, 0.8);
-        go(3, at(cell.x + cell.w - 70, cell.y + 70), T[2] + 0.8, 0.8);
-        go(2, pickThumb(3), T[2] + 1, 0.9);
+        pos = at(track.x + track.w, track.cy);
         t.to(S, { grid: 1, duration: 0.5 }, T[2]);
         t.to(S, { bend: 1, duration: 3.1, ease: "power1.inOut" }, T[2] + 0.6);
         t.to(S, { zoom: 1, duration: 2.7, ease: "power2.inOut" }, T[2] + 1.3);
         t.to(S, { grid: 0, duration: 0.7 }, T[2] + 3.6);
+        // A soft flash as the sphere closes around the camera.
+        t.fromTo(q(".flash"), { autoAlpha: 0 }, { autoAlpha: 0.28, duration: 0.18, ease: "power2.in" }, T[2] + 3.55);
+        t.to(q(".flash"), { autoAlpha: 0, duration: 0.6, ease: "power2.out" }, T[2] + 3.73);
 
-        // 4. Hotspots: turn to each real hotspot position, one drops it, another fills it in
+        // 4. Hotspots: turn to each real hotspot position, drop it, then fill in its details
         swap(2, 3, T[3]);
+        t.to(q(".holder"), { autoAlpha: 0, duration: 0.2 }, T[3]);
         t.to(q(".reticle"), { autoAlpha: 1, duration: 0.3 }, T[3] + 0.2);
         t.to(count, { hs: tour.stats.hotspots, duration: 3.4, ease: "none", onUpdate: () => write(".n-hs", count.hs) }, T[3] + 0.6);
-        go(3, at(cell.x + cell.w - 110, S.cell.y + S.cell.h - 60), T[3] + 0.5, 0.7);
         SPOTS.forEach((h, i) => {
           const when = T[3] + i * 1.4;
           const preview = q(".hs")[i].querySelectorAll(".hs-prev");
           t.to(S, { yaw: h.lon, pitch: h.lat, duration: 0.95, ease: "power2.inOut" }, when);
-          go(2, mid, when + 0.45, 0.5);
-          click(2, when + 1);
-          t.to(q(".hs")[i], { scale: 1, autoAlpha: 1, duration: 0.25, ease: "back.out(2.2)" }, when + 1);
+          move(mid, when + 0.35, 0.6);
+          hold(box(mid.cx, mid.cy, 60, 60), TINT.hotspot, "Hotspot", when + 0.4, 0.52);
+          click(when + 1);
+          t.to(q(".hs")[i], { scale: 1, autoAlpha: 1, duration: 0.3, ease: "back.out(3)" }, when + 1);
+          ring(q(".hs")[i].querySelectorAll(".hs-ring"), when + 1, 4);
           t.to(q(".hs-row")[i], { autoAlpha: 1, duration: 0.25 }, when + 1.05);
-          t.to(q(".hs-sel")[i], { autoAlpha: 0, duration: 0.3 }, when + 1.5);
+          t.to(q(".hs-sel")[i], { autoAlpha: 0, duration: 0.2 }, when + 1.05);
           if (preview.length) {
-            t.to(preview, { autoAlpha: 1, duration: 0.25 }, when + 1.1);
+            t.fromTo(preview, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: 0.3, ease: "back.out(2)" }, when + 1.1);
             t.to(preview, { autoAlpha: 0, duration: 0.3 }, when + 2.3);
           }
-          go(2, mid, when + 1.12, 0.3, 70, 84);
-          go(1, rows[i], when + 1.1, 0.4, 30, 0);
-          go(0, pickThumb(1 + i * 2), when + 0.6, 0.6);
+          move(rows[i], when + 1.08, 0.3, 30, 0);
+          hold(rows[i], TINT.detail, "Details", when + 1.1, 0.3);
         });
         t.to(q(".reticle"), { autoAlpha: 0, duration: 0.3 }, T[3] + 4);
 
         // 5. Publish: brand skin on, editor away, tour is live
         swap(3, 4, T[4]);
+        t.to(q(".holder"), { autoAlpha: 0, duration: 0.2 }, T[4]);
         t.to(S, { yaw: 20, pitch: -6, duration: 1.6, ease: "power2.inOut" }, T[4]);
         t.to(q(".skin"), { autoAlpha: 1, duration: 0.4 }, T[4] + 0.3);
-        go(0, corner, T[4] + 0.5, 0.7);
-        go(1, side, T[4] + 0.8, 0.6, 10, 40);
-        go(2, mid, T[4] + 0.6, 0.6, -110, 30);
-        go(3, swatch, T[4] + 0.6, 0.5);
-        click(3, T[4] + 1.1);
+        move(swatch, T[4] + 0.55, 0.52);
+        hold(swatch, TINT.brand, "Brand colours", T[4] + 0.6, 0.46);
+        click(T[4] + 1.1);
         t.to(q(".skin-on"), { autoAlpha: 1, duration: 0.4 }, T[4] + 1.1);
         t.to(count, { zones: tour.stats.zones, duration: 0.6, ease: "none", onUpdate: () => write(".n-zones", count.zones) }, T[4] + 1.1);
-        go(3, publish, T[4] + 1.7, 0.55);
-        click(3, T[4] + 2.25);
+        move(publish, T[4] + 1.65, 0.6);
+        hold(publish, TINT.publish, "Publish", T[4] + 1.72, 0.5);
+        click(T[4] + 2.25);
+        t.to(q(".publish"), { scale: 0.94, duration: 0.08 }, T[4] + 2.22);
+        t.to(q(".publish"), { scale: 1, duration: 0.35, ease: "back.out(3)" }, T[4] + 2.3);
         t.to(q(".published"), { autoAlpha: 1, duration: 0.15 }, T[4] + 2.25);
-        t.to(q(".dest-check"), { autoAlpha: 1, duration: 0.2, stagger: 0.12 }, T[4] + 2.3);
+        t.to(q(".dest-check"), { autoAlpha: 1, scale: 1, duration: 0.3, stagger: 0.12, ease: "back.out(3)" }, T[4] + 2.3);
+        // The whole window lights up green for a beat when the tour goes live.
+        t.fromTo(q(".live-ring"), { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.25 }, T[4] + 2.3);
+        t.to(q(".live-ring"), { autoAlpha: 0, duration: 0.9, ease: "power2.out" }, T[4] + 2.9);
 
         const end = T[4] + 2.8, out = { duration: 1.1, ease: "expo.inOut" };
         t.to(q(".chrome-top"), { y: -cell.y, ...out }, end);
@@ -289,7 +332,7 @@ export default function BuildSection() {
         t.to(q(".view"), { clipPath: "inset(0px 0px 0px 0px)", ...out }, end);
         t.to(q(".skin"), { left: 0, top: 0, width: W, height: H, ...out }, end);
         t.to(S, { off: 0, ...out }, end);
-        t.to(q(".cursor, .cap-4, .hud-4"), { autoAlpha: 0, duration: 0.4 }, end);
+        t.to(q(".cur, .holder, .cap-4, .hud-4"), { autoAlpha: 0, duration: 0.4 }, end);
         t.to(q(".hint"), { autoAlpha: 1, duration: 0.4 }, end + 1.1);
         t.set({}, {}, T[5]);
       }, st);
@@ -405,6 +448,8 @@ export default function BuildSection() {
               return (
                 <div key={h.id} ref={(el) => { spotEls[i] = el; }} className="absolute left-0 top-0 will-change-transform" style={{ visibility: "hidden" }}>
                   <div className={`hs relative ${reduced ? "" : "invisible"}`}>
+                    <span className="hs-ring absolute -left-2.5 -top-2.5 size-5 rounded-full border-2 border-orange" />
+                    <span className="hs-ring absolute -left-2.5 -top-2.5 size-5 rounded-full border border-white" />
                     <span className="absolute size-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-orange shadow-[0_2px_10px_rgb(0_0_0/0.45)]" />
                     <span className="glass absolute left-4 top-0 -translate-y-1/2 whitespace-nowrap rounded-full px-3 py-1 text-[12px] font-medium">{h.title}</span>
                     <span className="hs-sel absolute -left-7 -top-7 size-14 rounded-md border border-dashed border-green" />
@@ -420,6 +465,7 @@ export default function BuildSection() {
               );
             })}
           </div>
+          <div className="flash invisible absolute inset-0 bg-white" aria-hidden />
           <div className="reticle invisible absolute size-16 -translate-x-1/2 -translate-y-1/2" style={{ left: "calc(var(--cx) * 1px)", top: "calc(var(--cy) * 1px)" }} aria-hidden>
             <span className="absolute inset-x-0 top-1/2 h-px bg-white/70" />
             <span className="absolute inset-y-0 left-1/2 w-px bg-white/70" />
@@ -489,14 +535,7 @@ export default function BuildSection() {
               </div>
               <span className="hidden text-dim lg:block">{VIEW_LABEL[step]}</span>
               <div className="flex items-center gap-3">
-                <ul className="flex" aria-label="Team working on this tour">
-                  {TEAM.map((m) => (
-                    <li key={m.name} title={m.name} className="-ml-1.5 flex size-6 items-center justify-center rounded-full text-[10px] font-bold text-[#14210d] ring-2 ring-panel first:ml-0" style={{ background: m.color }}>
-                      {m.name[0]}
-                    </li>
-                  ))}
-                </ul>
-                <span className="publish relative overflow-hidden rounded-full bg-raised px-4 py-1.5 font-medium text-ink ring-1 ring-line">
+                <span className="publish relative inline-block overflow-hidden rounded-full bg-raised px-4 py-1.5 font-medium text-ink ring-1 ring-line">
                   Publish
                   <span className="published invisible absolute inset-0 flex items-center justify-center bg-green text-[#14210d]">Live</span>
                 </span>
@@ -542,11 +581,14 @@ export default function BuildSection() {
                   <span className="absolute left-1/2 top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-green ring-2 ring-canvas" />
                   {tour.pins.map((p) => (
                     <span key={p.id} className="pin absolute" style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }}>
+                      <span className="pin-ring absolute -left-2 -top-2 size-4 rounded-full border border-green" />
+                      <span className="pin-ring absolute -left-2 -top-2 size-4 rounded-full border border-green" />
                       <span className="absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-green bg-white shadow-[0_2px_8px_rgb(0_0_0/0.5)]" />
                       <span className={`absolute top-0 -translate-y-1/2 whitespace-nowrap rounded-full bg-canvas/90 px-2.5 py-0.5 text-[11px] text-ink ${p.x > 0.5 ? "right-3.5" : "left-3.5"}`}>{p.title}</span>
                     </span>
                   ))}
                 </div>
+                <span className="scan absolute inset-x-0 top-0 h-px bg-green shadow-[0_0_13px_3px_rgb(116_185_78/0.7)]" aria-hidden />
                 <p className="glass num absolute left-3 top-3 rounded-full px-3 py-1.5 text-[11px] lg:left-4 lg:top-4 lg:text-[12px]">
                   {tour.aerial.lat.toFixed(4)}° N, {tour.aerial.lon.toFixed(4)}° E
                 </p>
@@ -658,19 +700,34 @@ export default function BuildSection() {
           </div>
         )}
 
-        {/* The team: named cursors that do the work */}
-        {!reduced &&
-          TEAM.map((m, k) => (
-            <div key={m.name} className={`cursor cur-${k} pointer-events-none absolute left-0 top-0 z-50`} aria-hidden>
-              <span className="click absolute -left-4 -top-4 size-8 rounded-full border-2" style={{ borderColor: m.color }} />
-              <svg viewBox="0 0 22 26" className="h-[21px] w-[18px] drop-shadow-[0_2px_4px_rgb(0_0_0/0.5)] lg:h-[26px] lg:w-[22px]">
-                <path d="M2 2v19l5.2-4.6 3.4 7.6 3.2-1.4-3.4-7.5H18L2 2z" fill={m.color} stroke="#1d2125" strokeWidth="1.5" strokeLinejoin="round" />
-              </svg>
-              <span className="absolute left-3 top-5 whitespace-nowrap rounded-full rounded-tl-sm px-2 py-0.5 text-[10px] font-medium text-[#14210d] lg:left-4 lg:top-6 lg:px-2.5 lg:text-[11px]" style={{ background: m.color }}>
-                {m.name}
-              </span>
-            </div>
-          ))}
+        {/* The dotted holder wraps whatever is being worked on and takes its tint */}
+        {!reduced && (
+          <div
+            className="holder invisible pointer-events-none absolute left-0 top-0 z-[45] rounded-lg border-2 border-dotted border-current"
+            style={{ color: TINT.stop, background: "color-mix(in srgb, currentColor 12%, transparent)" }}
+            aria-hidden
+          >
+            {["-left-1 -top-1", "-right-1 -top-1", "-left-1 -bottom-1", "-right-1 -bottom-1"].map((c) => (
+              <span key={c} className={`absolute size-1.5 rounded-[1px] bg-current ${c}`} />
+            ))}
+            <span className="absolute -top-[22px] left-0 whitespace-nowrap rounded-[4px] bg-current px-1.5 text-[10px] font-semibold leading-[16px]">
+              <span className="holder-tag text-[#14210d]" />
+            </span>
+          </div>
+        )}
+        <div className="live-ring invisible pointer-events-none absolute inset-0 z-[46] rounded-2xl shadow-[inset_0_0_0_2px_var(--color-green),inset_0_0_55px_rgb(116_185_78/0.35)]" aria-hidden />
+
+        {/* The cursor that does the work */}
+        {!reduced && (
+          <div className="cur pointer-events-none absolute left-0 top-0 z-50" aria-hidden>
+            <span className="click absolute -left-4 -top-4 size-8 rounded-full border-2 border-white" />
+            <span className="click2 absolute -left-4 -top-4 size-8 rounded-full border border-white" />
+            <svg viewBox="0 0 22 26" className="arrow h-[22px] w-[19px] origin-top-left drop-shadow-[0_2px_5px_rgb(0_0_0/0.55)] lg:h-[26px] lg:w-[22px]">
+              <path d="M2 2v19l5.2-4.6 3.4 7.6 3.2-1.4-3.4-7.5H18L2 2z" fill="#fff" stroke="#1d2125" strokeWidth="1.5" strokeLinejoin="round" />
+            </svg>
+            <span className="absolute left-4 top-6 whitespace-nowrap rounded-full rounded-tl-sm bg-green px-2.5 py-0.5 text-[10px] font-medium text-[#14210d] lg:text-[11px]">Turiya</span>
+          </div>
+        )}
       </div>
 
       {!reduced && (
