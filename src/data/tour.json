@@ -1,0 +1,191 @@
+{
+ "project": "Abhishta Agri Farm Stay",
+ "stats": {
+  "panoramas": 39,
+  "hotspots": 131,
+  "zones": 6
+ },
+ "categories": [
+  {
+   "title": "Aerial View",
+   "count": 1
+  },
+  {
+   "title": "Entrance",
+   "count": 1
+  },
+  {
+   "title": "Accommodation",
+   "count": 10
+  },
+  {
+   "title": "Experiences",
+   "count": 13
+  },
+  {
+   "title": "Courtyard House",
+   "count": 2
+  },
+  {
+   "title": "Pathway",
+   "count": 12
+  }
+ ],
+ "pins": [
+  {
+   "id": "node46",
+   "title": "Entrance",
+   "x": 0.2144,
+   "y": 0.3216
+  },
+  {
+   "id": "node11",
+   "title": "Pathway",
+   "x": 0.5188,
+   "y": 0.3923
+  },
+  {
+   "id": "node20",
+   "title": "Cow Cuddling Area",
+   "x": 0.4334,
+   "y": 0.2965
+  },
+  {
+   "id": "node24",
+   "title": "Entrance",
+   "x": 0.4225,
+   "y": 0.7155
+  },
+  {
+   "id": "node30",
+   "title": "Amphitheater / Campfire Area",
+   "x": 0.5406,
+   "y": 0.6315
+  },
+  {
+   "id": "node36",
+   "title": "Pathway",
+   "x": 0.3523,
+   "y": 0.4898
+  }
+ ],
+ "strip": [
+  {
+   "id": "node46",
+   "title": "Entrance",
+   "file": "001_0019 Panorama.jpg"
+  },
+  {
+   "id": "node11",
+   "title": "Pathway",
+   "file": "DSC04231 Panorama.jpg"
+  },
+  {
+   "id": "node15",
+   "title": "Koi Pond",
+   "file": "DSC04276 Panorama.jpg"
+  },
+  {
+   "id": "node30",
+   "title": "Amphitheater / Campfire Area",
+   "file": "DSC04501 Panorama.jpg"
+  },
+  {
+   "id": "node31",
+   "title": "Bliss - Swimming Pool",
+   "file": "DSC04513 Panorama.jpg"
+  },
+  {
+   "id": "node52",
+   "title": "Dining Zone",
+   "file": "DSC03407 Panorama.jpg"
+  },
+  {
+   "id": "node62",
+   "title": "Mayura",
+   "file": "DSC03350 Panorama.jpg"
+  },
+  {
+   "id": "node78",
+   "title": "Living",
+   "file": "DSC03899 Panorama.jpg"
+  },
+  {
+   "id": "node24",
+   "title": "Entrance",
+   "file": "DSC04399 Panorama.jpg"
+  },
+  {
+   "id": "node20",
+   "title": "Cow Cuddling Area",
+   "file": "DSC04348 Panorama.jpg"
+  },
+  {
+   "id": "node14",
+   "title": "Entertainment Area",
+   "file": "DSC04261 Panorama.jpg"
+  },
+  {
+   "id": "node57",
+   "title": "Gaushaale",
+   "file": "DSC03779 Panorama.jpg"
+  }
+ ],
+ "hero": {
+  "id": "node31",
+  "title": "Bliss - Swimming Pool",
+  "file": "DSC04513 Panorama.jpg",
+  "hotspots": [
+   {
+    "id": "Point01",
+    "title": "Amphitheater / Campfire Area",
+    "kind": "Node link",
+    "pan": -81.72,
+    "tilt": -4.68,
+    "lon": 81.72,
+    "lat": -4.68,
+    "target": "node30"
+   },
+   {
+    "id": "Point02",
+    "title": "Pathway",
+    "kind": "Node link",
+    "pan": -157.46,
+    "tilt": -1.48,
+    "lon": 157.46,
+    "lat": -1.48,
+    "target": "node33"
+   },
+   {
+    "id": "Point03",
+    "title": "Farm Overview",
+    "kind": "Aerial link",
+    "pan": -173.58,
+    "tilt": 53.95,
+    "lon": 173.58,
+    "lat": 53.95,
+    "target": "node47"
+   },
+   {
+    "id": "Point04",
+    "title": "Pathway",
+    "kind": "Node link",
+    "pan": -220.28,
+    "tilt": -2.0,
+    "lon": -139.72,
+    "lat": -2.0,
+    "target": "node81"
+   },
+   {
+    "id": "Point05",
+    "title": "Kids Zone",
+    "kind": "Info tag",
+    "pan": -53.93,
+    "tilt": -21.67,
+    "lon": 53.93,
+    "lat": -21.67,
+    "target": ""
+   }
+  ]
+ }
+}

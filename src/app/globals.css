@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-flex), Roboto, system-ui, sans-serif;
+
+  /* Turiya's own colours, from turiya.co */
+  --color-green: #74b94e;
+  --color-orange: #f89833;
+  --color-gold: #ffd700;
+  --color-charcoal: #343a40;
+
+  /* Editor surfaces, built off their charcoal */
+  --color-pit: #14181b;
+  --color-canvas: #1d2125;
+  --color-panel: #262b30;
+  --color-raised: #2f353b;
+  --color-line: #414950;
+  --color-ink: #eef1f3;
+  --color-dim: #9ba5ae;
+
+  /* Abhishta's colours, sampled from the client logo in the tour package */
+  --color-client: #086139;
+  --color-client-accent: #fbb825;
+}
+
+html {
+  background: var(--color-canvas);
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  overflow-x: clip;
+}
+
+.display {
+  font-variation-settings: "wdth" 128;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.02;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-green);
+  outline-offset: 3px;
+}
+
+/* Fine dot grid on the editor viewport */
+.dotgrid {
+  background-image: radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1px);
+  background-size: 21px 21px;
+}
+
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+/* Touch: native snap, one stop per swipe */
+@media (pointer: coarse) and (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
+  }
+  [data-snap] {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+}
+
+::selection {
+  background: var(--color-green);
+  color: #14210d;
+}
+
+html {
+  scrollbar-color: var(--color-line) var(--color-canvas);
+}
