@@ -385,9 +385,9 @@ export default function BuildSection() {
       className={`relative flex flex-col gap-[13px] bg-pit px-3 pb-3 pt-[21px] lg:gap-[21px] lg:px-[34px] lg:pb-[21px] lg:pt-[34px] ${reduced ? "" : "h-svh"}`}
     >
       <header className="flex shrink-0 flex-wrap items-end justify-between gap-x-[34px] gap-y-1">
-        <h2 id="build-title" className="display text-[clamp(1.45rem,3vw,2.4rem)]">How we built the {tour.project} tour</h2>
+        <h2 id="build-title" className="display text-[clamp(1.45rem,3vw,2.4rem)]">How we build the tours</h2>
         <p className="max-w-[40ch] text-[14px] text-dim lg:text-[15px] xl:text-right">
-          A sped-up reconstruction from the real tour files. It plays by itself.
+          A sped-up reconstruction from a real tour&apos;s files. It plays by itself.
         </p>
       </header>
 
@@ -433,7 +433,7 @@ export default function BuildSection() {
           </div>
           <div className="skin-on absolute left-3 top-3 flex h-12 w-28 items-center justify-center rounded-lg bg-white p-2 lg:left-5 lg:top-5 lg:h-14 lg:w-32">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/tour/clientlogo.png" alt={`${tour.project} logo`} className="max-h-full" />
+            <img src="/tour/clientlogo.png" alt="Client logo" className="max-h-full" />
           </div>
           <div className="absolute inset-x-0 bottom-5 hidden justify-center lg:flex">
             <ul className="relative flex gap-1 rounded-full bg-[#4a4f54] p-1 text-[12px] text-white">
@@ -485,7 +485,7 @@ export default function BuildSection() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/tour/turiya.svg" alt="Turiya" className="h-5 w-auto" />
                 <span className="hidden h-4 w-px bg-line sm:block" />
-                <span className="hidden truncate text-dim sm:block">{tour.project}</span>
+                <span className="hidden truncate text-dim sm:block">Farm stay tour</span>
               </div>
               <span className="hidden text-dim lg:block">{VIEW_LABEL[step]}</span>
               <div className="flex items-center gap-3">
@@ -533,7 +533,7 @@ export default function BuildSection() {
               <div className="map absolute inset-0 overflow-hidden">
                 <div className="absolute left-1/2 top-1/2 aspect-[3/2] w-[max(122cqw,150cqh)] -translate-x-[41%] -translate-y-1/2">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/tour/aerial.webp" alt="Drone view of Abhishta Agri Farm Stay from directly above" className="size-full object-cover" />
+                  <img src="/tour/aerial.webp" alt="Drone view of a farm stay from directly above" className="size-full object-cover" />
                   <svg viewBox="0 0 300 200" preserveAspectRatio="none" className="absolute inset-0 size-full" aria-hidden>
                     {tour.pins.map((p) => (
                       <line key={p.id} className="link" x1="150" y1="100" x2={p.x * 300} y2={p.y * 200} pathLength={1} strokeDasharray="1" stroke="#74b94e" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />

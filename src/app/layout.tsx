@@ -11,7 +11,7 @@ const flex = Roboto_Flex({
 export const metadata: Metadata = {
   title: "How a Turiya tour gets built",
   description:
-    "Scroll to watch Abhishta Agri Farm Stay go from a drone map to a published 360° virtual tour.",
+    "Scroll to watch a farm stay go from a drone map to a published 360° virtual tour.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

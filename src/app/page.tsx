@@ -15,7 +15,7 @@ export default function Home() {
             Every tour starts as a warped photo.
           </h1>
           <p className="mt-[21px] max-w-[46ch] text-[17px] text-dim lg:text-[19px]">
-            This is what our camera sees at {tour.project}. Watch it become a place you can walk around.
+            This is what our camera sees. Watch it become a place you can walk around.
           </p>
           <a
             href="#build"
@@ -30,7 +30,7 @@ export default function Home() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/tour/hero-intro.webp"
-          alt={`Flat, stretched 360° photo of the swimming pool at ${tour.project}`}
+          alt="Flat, stretched 360° photo of a swimming pool"
           className="min-h-0 w-full flex-1 object-cover object-[50%_58%]"
         />
       </section>
