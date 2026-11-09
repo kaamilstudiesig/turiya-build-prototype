@@ -187,5 +187,10 @@
     "target": ""
    }
   ]
+ },
+ "aerial": {
+  "lat": 13.084506,
+  "lon": 76.924179,
+  "title": "Farm Overview"
  }
 }

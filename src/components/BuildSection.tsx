@@ -9,22 +9,24 @@ import { S, resetState, spotEls } from "./state";
 const PanoStage = dynamic(() => import("./PanoStage"), { ssr: false });
 
 const STEPS = [
-  { name: "Plan", line: "Fly the drone, map the property and decide where the camera stands." },
-  { name: "Capture", line: "Shoot a full 360° at every stop. Each one comes back as a flat, stretched photo." },
-  { name: "Stitch", line: "Wrap the flat photo into a sphere, then step inside it." },
-  { name: "Hotspots", line: "Link the stops and tag what matters, so visitors can walk the place." },
-  { name: "Publish", line: "Dress it in the client's brand and push it live." },
+  { name: "Plan", line: `A drone maps the property. We mark every spot the camera will stand, ${tour.stats.panoramas} of them here.` },
+  { name: "Capture", line: "Each stop is shot in full 360°. The camera hands back a flat, stretched photo like this one." },
+  { name: "Stitch", line: "We wrap that flat photo into a sphere and put you in the middle of it." },
+  { name: "Hotspots", line: "Stops get linked so visitors can walk around, and points of interest get tagged." },
+  { name: "Publish", line: "The tour takes on the client's brand and goes live on web, Google Maps and VR." },
 ];
 const VIEW_LABEL = ["Top view, Farm Overview", `${tour.hero.file}, flat`, "Stitching", tour.hero.title, tour.hero.title];
 // Timeline seconds at which each step begins.
 const T = [0, 3.6, 6, 10.5, 14.9, 19.2];
 // Timeline seconds played per real second.
-const SPEED = 1.35;
+const SPEED = 1.3;
 
 const pick = (title: string) => tour.hero.hotspots.find((h) => h.title === title)!;
 const SPOTS = [pick("Kids Zone"), pick("Amphitheater / Campfire Area"), tour.hero.hotspots.find((h) => h.target === "node33")!];
 const HERO_INDEX = tour.strip.findIndex((s) => s.id === tour.hero.id);
 const STRIP = [...tour.strip.slice(0, 2), tour.strip[HERO_INDEX], ...tour.strip.slice(2).filter((s) => s.id !== tour.hero.id)];
+const MAX_ZONE = Math.max(...tour.categories.map((c) => c.count));
+const DESTINATIONS = ["Web and mobile", "Google Maps", "VR headset"];
 
 const TEAM = [
   { name: "Capture", color: "#74b94e" },
@@ -33,6 +35,21 @@ const TEAM = [
   { name: "Brand", color: "#ffffff" },
 ];
 
+const ICONS = [
+  <g key="0"><path d="M8 14s4.5-4 4.5-7.5a4.5 4.5 0 0 0-9 0C3.5 10 8 14 8 14z" /><circle cx="8" cy="6.5" r="1.5" /></g>,
+  <g key="1"><path d="M2.5 5.5h2l1-1.5h5l1 1.5h2v7h-11z" /><circle cx="8" cy="9" r="2.2" /></g>,
+  <g key="2"><circle cx="8" cy="8" r="5.5" /><path d="M2.5 8h11M8 2.5c2 1.6 2 9.4 0 11M8 2.5c-2 1.6-2 9.4 0 11" /></g>,
+  <g key="3"><circle cx="8" cy="8" r="5" /><circle cx="8" cy="8" r="1.4" /><path d="M8 1v2M8 13v2M1 8h2M13 8h2" /></g>,
+  <path key="4" d="M8 10.5v-8M4.5 6 8 2.5 11.5 6M3 13.5h10" />,
+];
+
+const Icon = ({ children, size = 16 }: { children: React.ReactNode; size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0">
+    {children}
+  </svg>
+);
+const Check = () => <path d="M3.5 8.5l3 3 6-7" />;
+
 const Field = ({ k, v }: { k: string; v: string }) => (
   <div className="flex items-baseline justify-between gap-3 border-b border-line/60 py-2 last:border-0">
     <dt className="text-dim">{k}</dt>
@@ -40,13 +57,26 @@ const Field = ({ k, v }: { k: string; v: string }) => (
   </div>
 );
 
+// The Flat to Sphere control: a real slider one of the team drags.
+const Slider = () => (
+  <div>
+    <div className="mb-2 flex justify-between opacity-80"><span>Flat</span><span>Sphere</span></div>
+    <div className="bar-track relative h-1.5 rounded-full bg-raised">
+      <div className="bar h-full origin-left rounded-full bg-green" />
+      <span className="knob absolute left-0 top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-green bg-white shadow-[0_2px_6px_rgb(0_0_0/0.5)]" />
+    </div>
+  </div>
+);
+
+const imgPreview = (id: string) => (id === "node30" || id === "node33" ? `/tour/prev-${id}.jpg` : null);
+
 export default function BuildSection() {
-  const root = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
   const [active, setActive] = useState(false);
-  const replay = useRef<() => void>(() => {});
+  const control = useRef({ replay: () => {}, jump: (i: number) => void i });
   const [reduced, setReduced] = useState(false);
 
   useEffect(() => {
@@ -69,6 +99,8 @@ export default function BuildSection() {
       const r = el.getBoundingClientRect(), s = st.getBoundingClientRect();
       return { x: r.left - s.left, y: r.top - s.top, w: r.width, h: r.height, cx: r.left - s.left + r.width / 2, cy: r.top - s.top + r.height / 2 };
     };
+    // The section counts as "on screen" only when the page has come to rest on it.
+    const settled = () => Math.abs(sec.getBoundingClientRect().top) < window.innerHeight * 0.04;
 
     const build = () => {
       ctx?.revert();
@@ -76,47 +108,54 @@ export default function BuildSection() {
       resetState();
       lastW = window.innerWidth;
       lastH = window.innerHeight;
-      S.stage = { w: st.clientWidth, h: st.clientHeight };
+      const W = st.clientWidth, H = st.clientHeight;
+      S.stage = { w: W, h: H };
       if (reduced) {
-        S.cell = { x: 0, y: 0, w: st.clientWidth, h: st.clientHeight };
+        S.cell = { x: 0, y: 0, w: W, h: H };
         Object.assign(S, { alpha: 1, fly: 1, bend: 1, zoom: 1, yaw: 20, pitch: -6, off: 0, live: true });
         return;
       }
       const desktop = window.matchMedia("(min-width: 1024px)").matches;
       const cell = rect(q(".cell")[0]);
-      S.cell = { x: cell.x, y: cell.y, w: cell.w, h: cell.h };
-      st.style.setProperty("--cx", String(cell.cx));
-      st.style.setProperty("--cy", String(cell.cy));
+      st.style.setProperty("--cell-x", `${cell.x}px`);
+      st.style.setProperty("--cell-y", `${cell.y}px`);
+      st.style.setProperty("--cell-r", `${W - cell.x - cell.w}px`);
+      st.style.setProperty("--cell-b", `${H - cell.y - cell.h}px`);
+      // Keep the scene clear of the caption that sits along the bottom of the viewport.
+      const capH = Math.max(...q(".cap").map((el) => rect(el).h)) + 28;
+      S.cell = { x: cell.x, y: cell.y, w: cell.w, h: cell.h - capH };
+      const at = (cx: number, cy: number) => ({ cx, cy });
+      const mid = at(S.cell.x + S.cell.w / 2, S.cell.y + S.cell.h / 2);
+      st.style.setProperty("--cx", String(mid.cx));
+      st.style.setProperty("--cy", String(mid.cy));
 
       ctx = gsap.context(() => {
         // Measure cursor targets before anything is moved.
         const pins = q(".pin").map(rect);
-        const thumbs = q(".thumb-box").map(rect);
+        const thumbs = q(".thumb-box").map(rect).filter((t) => t.x + t.w <= W - 4);
         const thumb = rect(q(".thumb-hero .thumb-box")[0]);
         const publish = rect(q(".publish")[0]);
-        const insp = desktop ? rect(q(".chrome-right")[0]) : cell;
-        const rail = desktop ? rect(q(".chrome-left")[0]) : cell;
-        const swatch = desktop ? rect(q(".swatch")[0]) : cell;
-        const track = desktop ? rect(q(".bar-track")[0]) : cell;
-        const rows = desktop ? q(".hs-row").map(rect) : [];
+        const side = rect(q(desktop ? ".chrome-right" : ".huds")[0]);
+        const track = rect(q(desktop ? ".insp-2 .bar-track" : ".hud-2 .bar-track")[0]);
+        const rows = desktop ? q(".hs-row").map(rect) : SPOTS.map(() => side);
+        const swatch = desktop ? rect(q(".swatch")[0]) : at(cell.x + 76, cell.y + 44);
+        const corner = desktop ? at(rect(q(".chrome-left")[0]).cx, cell.y + cell.h - 40) : at(cell.x + 56, cell.y + cell.h * 0.45);
         S.thumb = { cx: thumb.cx, cy: thumb.cy, w: thumb.w };
-        const W = st.clientWidth, H = st.clientHeight;
         const clipCell = `inset(${cell.y}px ${W - cell.x - cell.w}px ${H - cell.y - cell.h}px ${cell.x}px)`;
-        const at = (cx: number, cy: number) => ({ cx, cy });
+        const bars = [...sec.querySelectorAll<HTMLElement>(".prog")];
 
         gsap.set(q(".pin, .hs"), { scale: 0, autoAlpha: 0 });
         gsap.set(q(".link"), { strokeDashoffset: 1 });
         gsap.set(q(".thumb img, .thumb figcaption"), { autoAlpha: 0, y: 10 });
-        gsap.set(q(".insp:not(.insp-0), .hs-row, .skin, .skin-on, .published, .hint, .thumb-ring, .click, .reticle"), { autoAlpha: 0 });
+        gsap.set(q(".insp:not(.insp-0), .cap:not(.cap-0), .hud:not(.hud-0), .hs-row, .hs-prev, .skin, .skin-on, .published, .hint, .thumb-ring, .click, .reticle, .dest-check"), { autoAlpha: 0 });
         gsap.set(q(".skin"), { left: cell.x, top: cell.y, width: cell.w, height: cell.h });
-        gsap.set(q(".bar"), { scaleX: 0 });
+        gsap.set(q(".bar, .zone-bar"), { scaleX: 0 });
         gsap.set(q(".view"), { clipPath: "inset(0px 0px 0px 0px)" });
         // The team starts spread around the editor.
-        [at(cell.cx + 90, cell.cy + 150), at(cell.x + 70, cell.y + cell.h - 60), at(insp.cx, insp.y + 130), at(cell.x + cell.w - 90, cell.y + 70)].forEach((p, k) =>
+        [at(mid.cx + 70, mid.cy + 90), at(cell.x + 60, cell.y + cell.h * 0.6), at(side.cx, side.cy), at(cell.x + cell.w - 80, cell.y + 80)].forEach((p, k) =>
           gsap.set(q(`.cur-${k}`), { x: p.cx, y: p.cy }),
         );
 
-        const bars = [...sec.querySelectorAll<HTMLElement>(".prog")];
         const count = { pan: 0, hs: 0, zones: 0 };
         const write = (sel: string, v: number) => q(sel).forEach((el) => (el.textContent = String(Math.round(v))));
 
@@ -126,11 +165,10 @@ export default function BuildSection() {
           onUpdate: () => {
             const now = t.time();
             const k = T.findIndex((_, n) => now <= T[n + 1] + 0.001);
-            const i = k < 0 ? 4 : k;
-            setStep(i);
+            setStep(k < 0 ? 4 : k);
             bars.forEach((el) => {
               const n = Number(el.dataset.i);
-              el.style.transform = `scaleX(${n < 0 ? now / T[5] : Math.max(0, Math.min(1, (now - T[n]) / (T[n + 1] - T[n])))})`;
+              el.style.transform = `scaleX(${Math.max(0, Math.min(1, (now - T[n]) / (T[n + 1] - T[n])))})`;
             });
             const live = now > T[4] + 3.6;
             if (live !== S.live) {
@@ -149,16 +187,19 @@ export default function BuildSection() {
 
         // k = which team member: 0 Capture, 1 Stitch, 2 Hotspots, 3 Brand
         const go = (k: number, p: { cx: number; cy: number }, when: number, d = 0.5, dx = 0, dy = 0) =>
-          desktop && t.to(q(`.cur-${k}`), { x: p.cx + dx, y: p.cy + dy, duration: d, ease: "power2.inOut" }, when);
+          t.to(q(`.cur-${k}`), { x: p.cx + dx, y: p.cy + dy, duration: d, ease: "power2.inOut" }, when);
         const click = (k: number, when: number) =>
-          desktop && t.fromTo(q(`.cur-${k} .click`), { scale: 0.3, autoAlpha: 0.9 }, { scale: 1.7, autoAlpha: 0, duration: 0.3, ease: "power1.out" }, when);
+          t.fromTo(q(`.cur-${k} .click`), { scale: 0.3, autoAlpha: 0.9 }, { scale: 1.7, autoAlpha: 0, duration: 0.3, ease: "power1.out" }, when);
+        // Swap the side panel, the caption and the phone readout together.
         const swap = (from: number, to: number, when: number) => {
-          t.to(q(`.insp-${from}`), { autoAlpha: 0, y: -8, duration: 0.3 }, when);
-          t.fromTo(q(`.insp-${to}`), { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: 0.35 }, when + 0.2);
+          t.to(q(`.insp-${from}, .cap-${from}, .hud-${from}`), { autoAlpha: 0, y: -8, duration: 0.3 }, when);
+          t.fromTo(q(`.insp-${to}, .cap-${to}, .hud-${to}`), { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.4 }, when + 0.2);
         };
+        const pickThumb = (n: number) => thumbs[n % Math.max(1, thumbs.length)] ?? thumb;
 
         // 1. Plan: three people drop pins on the drone map at once
         t.to(count, { pan: tour.stats.panoramas, duration: 2.8, ease: "none", onUpdate: () => write(".n-pan", count.pan) }, 0.4);
+        t.to(q(".zone-bar"), { scaleX: 1, duration: 0.5, stagger: 0.12, ease: "power2.out" }, 0.5);
         const pinTeam = [0, 1, 3];
         pins.forEach((p, i) => {
           const when = 0.35 + i * 0.42, k = pinTeam[i % 3];
@@ -167,54 +208,60 @@ export default function BuildSection() {
           t.to(q(".pin")[i], { scale: 1, autoAlpha: 1, duration: 0.22, ease: "back.out(2.4)" }, when + 0.5);
           t.to(q(".link")[i], { strokeDashoffset: 0, duration: 0.4, ease: "power1.inOut" }, when + 0.54);
         });
-        go(2, at(insp.cx - 40, insp.y + 100), 0.5, 0.6);
-        go(2, at(insp.cx + 30, insp.y + 230), 1.8, 0.8);
+        go(2, side, 0.5, 0.6, -30, -20);
+        go(2, side, 1.8, 0.8, 24, 30);
 
         // 2. Capture: the flat photos come in, one lifts out of the strip
         swap(0, 1, T[1]);
         t.to(q(".thumb img, .thumb figcaption"), { autoAlpha: 1, y: 0, duration: 0.3, stagger: 0.04 }, T[1] + 0.05);
         go(0, thumb, T[1] + 0.35, 0.5);
-        go(1, thumbs[6], T[1] + 0.2, 0.6);
-        go(3, thumbs[9], T[1] + 0.3, 0.6);
-        go(2, at(insp.cx, insp.y + 140), T[1] + 0.4, 0.6);
+        go(1, pickThumb(6), T[1] + 0.2, 0.6);
+        go(3, pickThumb(9), T[1] + 0.3, 0.6);
+        go(2, side, T[1] + 0.4, 0.6, 0, 10);
         click(0, T[1] + 0.85);
         t.to(q(".thumb-ring"), { autoAlpha: 1, duration: 0.12 }, T[1] + 0.85);
         t.to(q(".map"), { autoAlpha: 0, scale: 0.97, duration: 0.6, ease: "power1.inOut" }, T[1] + 0.85);
         t.to(S, { alpha: 1, duration: 0.12, ease: "none" }, T[1] + 0.9);
         t.to(S, { fly: 1, duration: 1.15, ease: "power3.inOut" }, T[1] + 0.9);
-        go(0, at(cell.x + cell.w * 0.8, cell.y + cell.h * 0.82), T[1] + 1.2, 0.7);
+        go(0, at(cell.x + cell.w * 0.82, S.cell.y + S.cell.h * 0.86), T[1] + 1.2, 0.7);
 
         // 3. Stitch: someone drags Flat to Sphere, the sheet curls and the camera steps inside
         t.set(q(".view"), { clipPath: clipCell }, T[2]);
         swap(1, 2, T[2]);
-        go(1, at(track.x, track.cy), T[2], 0.4);
-        click(1, T[2] + 0.4);
-        if (desktop) t.to(q(".cur-1"), { x: track.x + track.w, duration: 3.3, ease: "power1.inOut" }, T[2] + 0.4);
-        go(0, at(cell.x + 60, cell.y + cell.h - 50), T[2] + 0.6, 0.8);
-        go(3, at(cell.x + cell.w - 70, cell.y + 60), T[2] + 0.8, 0.8);
-        go(2, thumbs[3], T[2] + 1, 0.9);
+        go(1, at(track.x, track.cy), T[2] + 0.1, 0.5);
+        click(1, T[2] + 0.6);
+        t.to(q(".cur-1"), { x: track.x + track.w, duration: 3.1, ease: "power1.inOut" }, T[2] + 0.6);
+        t.to(q(".knob"), { left: "100%", duration: 3.1, ease: "power1.inOut" }, T[2] + 0.6);
+        t.to(q(".bar"), { scaleX: 1, duration: 3.1, ease: "power1.inOut" }, T[2] + 0.6);
+        go(0, at(cell.x + 56, S.cell.y + S.cell.h - 40), T[2] + 0.6, 0.8);
+        go(3, at(cell.x + cell.w - 70, cell.y + 70), T[2] + 0.8, 0.8);
+        go(2, pickThumb(3), T[2] + 1, 0.9);
         t.to(S, { grid: 1, duration: 0.5 }, T[2]);
-        t.to(S, { bend: 1, duration: 3.3, ease: "power1.inOut" }, T[2] + 0.4);
-        t.to(q(".bar"), { scaleX: 1, duration: 3.3, ease: "power1.inOut" }, T[2] + 0.4);
-        t.to(S, { zoom: 1, duration: 2.9, ease: "power2.inOut" }, T[2] + 1.1);
+        t.to(S, { bend: 1, duration: 3.1, ease: "power1.inOut" }, T[2] + 0.6);
+        t.to(S, { zoom: 1, duration: 2.7, ease: "power2.inOut" }, T[2] + 1.3);
         t.to(S, { grid: 0, duration: 0.7 }, T[2] + 3.6);
 
         // 4. Hotspots: turn to each real hotspot position, one drops it, another fills it in
         swap(2, 3, T[3]);
         t.to(q(".reticle"), { autoAlpha: 1, duration: 0.3 }, T[3] + 0.2);
         t.to(count, { hs: tour.stats.hotspots, duration: 3.4, ease: "none", onUpdate: () => write(".n-hs", count.hs) }, T[3] + 0.6);
-        go(3, at(cell.x + cell.w - 120, cell.y + cell.h - 80), T[3] + 0.5, 0.7);
+        go(3, at(cell.x + cell.w - 110, S.cell.y + S.cell.h - 60), T[3] + 0.5, 0.7);
         SPOTS.forEach((h, i) => {
           const when = T[3] + i * 1.4;
+          const preview = q(".hs")[i].querySelectorAll(".hs-prev");
           t.to(S, { yaw: h.lon, pitch: h.lat, duration: 0.95, ease: "power2.inOut" }, when);
-          go(2, cell, when + 0.45, 0.5);
+          go(2, mid, when + 0.45, 0.5);
           click(2, when + 1);
           t.to(q(".hs")[i], { scale: 1, autoAlpha: 1, duration: 0.25, ease: "back.out(2.2)" }, when + 1);
           t.to(q(".hs-row")[i], { autoAlpha: 1, duration: 0.25 }, when + 1.05);
           t.to(q(".hs-sel")[i], { autoAlpha: 0, duration: 0.3 }, when + 1.5);
-          go(2, cell, when + 1.12, 0.3, 90, 96);
-          if (rows[i]) go(1, rows[i], when + 1.1, 0.4, 40, 0);
-          go(0, thumbs[1 + i * 2], when + 0.6, 0.6);
+          if (preview.length) {
+            t.to(preview, { autoAlpha: 1, duration: 0.25 }, when + 1.1);
+            t.to(preview, { autoAlpha: 0, duration: 0.3 }, when + 2.3);
+          }
+          go(2, mid, when + 1.12, 0.3, 70, 84);
+          go(1, rows[i], when + 1.1, 0.4, 30, 0);
+          go(0, pickThumb(1 + i * 2), when + 0.6, 0.6);
         });
         t.to(q(".reticle"), { autoAlpha: 0, duration: 0.3 }, T[3] + 4);
 
@@ -222,9 +269,9 @@ export default function BuildSection() {
         swap(3, 4, T[4]);
         t.to(S, { yaw: 20, pitch: -6, duration: 1.6, ease: "power2.inOut" }, T[4]);
         t.to(q(".skin"), { autoAlpha: 1, duration: 0.4 }, T[4] + 0.3);
-        go(0, at(rail.cx, rail.y + rail.h - 60), T[4] + 0.5, 0.7);
-        go(1, at(insp.cx, insp.y + 210), T[4] + 0.8, 0.6);
-        go(2, at(cell.cx - 120, cell.cy + 40), T[4] + 0.6, 0.6);
+        go(0, corner, T[4] + 0.5, 0.7);
+        go(1, side, T[4] + 0.8, 0.6, 10, 40);
+        go(2, mid, T[4] + 0.6, 0.6, -110, 30);
         go(3, swatch, T[4] + 0.6, 0.5);
         click(3, T[4] + 1.1);
         t.to(q(".skin-on"), { autoAlpha: 1, duration: 0.4 }, T[4] + 1.1);
@@ -232,8 +279,9 @@ export default function BuildSection() {
         go(3, publish, T[4] + 1.7, 0.55);
         click(3, T[4] + 2.25);
         t.to(q(".published"), { autoAlpha: 1, duration: 0.15 }, T[4] + 2.25);
+        t.to(q(".dest-check"), { autoAlpha: 1, duration: 0.2, stagger: 0.12 }, T[4] + 2.3);
 
-        const end = T[4] + 2.6, out = { duration: 1.1, ease: "expo.inOut" };
+        const end = T[4] + 2.8, out = { duration: 1.1, ease: "expo.inOut" };
         t.to(q(".chrome-top"), { y: -cell.y, ...out }, end);
         t.to(q(".chrome-left"), { x: -cell.x, ...out }, end);
         t.to(q(".chrome-right"), { x: W - cell.x - cell.w, ...out }, end);
@@ -241,7 +289,7 @@ export default function BuildSection() {
         t.to(q(".view"), { clipPath: "inset(0px 0px 0px 0px)", ...out }, end);
         t.to(q(".skin"), { left: 0, top: 0, width: W, height: H, ...out }, end);
         t.to(S, { off: 0, ...out }, end);
-        t.to(q(".cursor"), { autoAlpha: 0, duration: 0.4 }, end);
+        t.to(q(".cursor, .cap-4, .hud-4"), { autoAlpha: 0, duration: 0.4 }, end);
         t.to(q(".hint"), { autoAlpha: 1, duration: 0.4 }, end + 1.1);
         t.set({}, {}, T[5]);
       }, st);
@@ -252,27 +300,32 @@ export default function BuildSection() {
       else if (visible) made.play();
     };
 
-    replay.current = () => {
-      finished = false;
-      setDone(false);
-      tl?.restart();
+    // Stop the video and the 3D the moment the page starts moving, so scrolling is never fought for frames.
+    const sync = () => {
+      const now = settled();
+      if (now === visible) return;
+      visible = now;
+      setActive(now);
+      if (!tl) return;
+      if (now && !finished) tl.play();
+      else if (!now) tl.pause();
+    };
+
+    control.current = {
+      replay: () => {
+        finished = false;
+        setDone(false);
+        tl?.restart();
+      },
+      jump: (i: number) => {
+        finished = false;
+        setDone(false);
+        tl?.play(T[i] + 0.01);
+      },
     };
 
     build();
-    const io = new IntersectionObserver(
-      ([e]) => {
-        // Start only once the page has all but landed on the section, never mid-glide.
-        const r = e.intersectionRatio;
-        if (r >= 0.92) visible = true;
-        else if (r < 0.5) visible = false;
-        setActive(visible);
-        if (!tl) return;
-        if (visible && !finished) tl.play();
-        else if (!visible) tl.pause();
-      },
-      { threshold: [0, 0.5, 0.92, 1] },
-    );
-    io.observe(sec);
+    sync();
     let raf = 0;
     const onResize = () => {
       cancelAnimationFrame(raf);
@@ -281,9 +334,10 @@ export default function BuildSection() {
         build();
       });
     };
+    window.addEventListener("scroll", sync, { passive: true });
     window.addEventListener("resize", onResize);
     return () => {
-      io.disconnect();
+      window.removeEventListener("scroll", sync);
       window.removeEventListener("resize", onResize);
       ctx?.revert();
     };
@@ -342,34 +396,42 @@ export default function BuildSection() {
         className={`dotgrid relative min-h-0 overflow-hidden rounded-2xl border border-line bg-canvas text-[13px] shadow-[0_34px_89px_-34px_rgb(0_0_0/0.8)] ${reduced ? "h-[70svh]" : "flex-1"}`}
       >
         <div className="view pointer-events-none absolute inset-0 z-10">
-        <PanoStage spots={SPOTS} active={active} />
+          <PanoStage spots={SPOTS} active={active} />
 
-        {/* Hotspots, glued to the scene by the frame loop */}
-        <div className="absolute inset-0">
-          {SPOTS.map((h, i) => (
-            <div key={h.id} ref={(el) => { spotEls[i] = el; }} className="absolute left-0 top-0 will-change-transform" style={{ visibility: "hidden" }}>
-              <div className={`hs relative ${reduced ? "" : "invisible"}`}>
-                <span className="absolute size-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-orange shadow-[0_2px_10px_rgb(0_0_0/0.45)]" />
-                <span className="absolute left-4 top-0 -translate-y-1/2 whitespace-nowrap rounded-full bg-canvas/90 px-3 py-1 text-[12px] font-medium text-ink">
-                  {h.title}
-                </span>
-                <span className="hs-sel absolute -left-7 -top-7 size-14 rounded-md border border-dashed border-green" />
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="reticle invisible absolute size-16 -translate-x-1/2 -translate-y-1/2" style={{ left: "calc(var(--cx) * 1px)", top: "calc(var(--cy) * 1px)" }} aria-hidden>
-          <span className="absolute inset-x-0 top-1/2 h-px bg-white/70" />
-          <span className="absolute inset-y-0 left-1/2 w-px bg-white/70" />
-        </div>
+          {/* Hotspots, glued to the scene by the frame loop */}
+          <div className="absolute inset-0">
+            {SPOTS.map((h, i) => {
+              const prev = imgPreview(h.target);
+              return (
+                <div key={h.id} ref={(el) => { spotEls[i] = el; }} className="absolute left-0 top-0 will-change-transform" style={{ visibility: "hidden" }}>
+                  <div className={`hs relative ${reduced ? "" : "invisible"}`}>
+                    <span className="absolute size-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-orange shadow-[0_2px_10px_rgb(0_0_0/0.45)]" />
+                    <span className="glass absolute left-4 top-0 -translate-y-1/2 whitespace-nowrap rounded-full px-3 py-1 text-[12px] font-medium">{h.title}</span>
+                    <span className="hs-sel absolute -left-7 -top-7 size-14 rounded-md border border-dashed border-green" />
+                    {prev && !reduced && (
+                      <span className="hs-prev absolute bottom-5 left-0 block w-40 -translate-x-1/2 overflow-hidden rounded-lg border border-white/40 bg-canvas shadow-[0_8px_21px_rgb(0_0_0/0.5)] lg:w-48">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={prev} alt="" className="aspect-[300/126] w-full object-cover" />
+                        <span className="block px-2.5 py-1.5 text-[11px] text-dim">Opens <span className="text-ink">{h.title}</span></span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="reticle invisible absolute size-16 -translate-x-1/2 -translate-y-1/2" style={{ left: "calc(var(--cx) * 1px)", top: "calc(var(--cy) * 1px)" }} aria-hidden>
+            <span className="absolute inset-x-0 top-1/2 h-px bg-white/70" />
+            <span className="absolute inset-y-0 left-1/2 w-px bg-white/70" />
+          </div>
         </div>
 
         {/* The tour's own interface, branded for the client */}
         <div className={`skin pointer-events-none absolute z-20 ${reduced ? "inset-0" : "invisible"}`}>
-          <div className="absolute left-4 top-4 flex h-14 w-32 items-center justify-center rounded-lg border border-dashed border-white/50 text-[11px] text-white/70 lg:left-6 lg:top-6">
+          <div className="absolute left-3 top-3 flex h-12 w-28 items-center justify-center rounded-lg border border-dashed border-white/60 text-[11px] text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.7)] lg:left-5 lg:top-5 lg:h-14 lg:w-32">
             Client logo
           </div>
-          <div className="skin-on absolute left-4 top-4 flex h-14 w-32 items-center justify-center rounded-lg bg-white p-2 lg:left-6 lg:top-6">
+          <div className="skin-on absolute left-3 top-3 flex h-12 w-28 items-center justify-center rounded-lg bg-white p-2 lg:left-5 lg:top-5 lg:h-14 lg:w-32">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/tour/clientlogo.png" alt={`${tour.project} logo`} className="max-h-full" />
           </div>
@@ -389,48 +451,78 @@ export default function BuildSection() {
 
         <div className="drag absolute inset-0 z-30 touch-pan-y" style={{ pointerEvents: live ? "auto" : "none", cursor: live ? "grab" : undefined }} />
 
-        <p className={`hint pointer-events-none absolute inset-x-0 bottom-8 z-40 flex justify-center lg:bottom-20 ${reduced ? "" : "invisible"}`}>
-          <span className="rounded-full bg-canvas/85 px-4 py-2 text-[14px] text-ink">The tour is live. Drag to look around.</span>
+        {/* Captions and readouts over the viewport, like a video's lower third */}
+        {!reduced && (
+          <div className="pointer-events-none absolute z-40" style={{ left: "var(--cell-x, 0)", right: "var(--cell-r, 0)", top: "var(--cell-y, 0)", bottom: "var(--cell-b, 0)" }}>
+            {STEPS.map((s, i) => (
+              <div key={s.name} className={`cap cap-${i} glass absolute bottom-3 left-3 right-3 rounded-xl px-4 py-3 lg:bottom-4 lg:left-4 lg:right-auto lg:w-[440px] lg:px-5 lg:py-4`}>
+                <p className="flex items-center gap-2.5 text-[17px] font-semibold lg:text-[21px]">
+                  <span className="num flex size-6 items-center justify-center rounded-full bg-green text-[12px] font-bold text-[#14210d] [text-shadow:none] lg:size-7 lg:text-[13px]">{i + 1}</span>
+                  {s.name}
+                </p>
+                <p className="mt-1 text-[13px] leading-snug lg:text-[15px]">{s.line}</p>
+              </div>
+            ))}
+            <div className="huds absolute right-3 top-3 h-8 w-44 lg:hidden">
+              <p className="hud hud-0 glass absolute right-0 top-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px]"><span className="n-pan num font-semibold">0</span> stops planned</p>
+              <p className="hud hud-1 glass absolute right-0 top-0 max-w-full truncate rounded-full px-3 py-1.5 text-[12px]">{tour.hero.file}</p>
+              <div className="hud hud-2 glass absolute right-0 top-0 w-44 rounded-xl px-3 pb-3 pt-2 text-[11px]"><Slider /></div>
+              <p className="hud hud-3 glass absolute right-0 top-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px]"><span className="n-hs num font-semibold">0</span> hotspots</p>
+              <p className="hud hud-4 glass absolute right-0 top-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px]">Web, Maps and VR</p>
+            </div>
+          </div>
+        )}
+
+        <p className={`hint pointer-events-none absolute inset-x-0 bottom-6 z-40 flex justify-center lg:bottom-20 ${reduced ? "" : "invisible"}`}>
+          <span className="glass rounded-full px-4 py-2 text-[14px]">The tour is live. Drag to look around.</span>
         </p>
 
         {/* Editor chrome */}
         {!reduced && (
-          <div className="pointer-events-none absolute inset-0 z-0 grid grid-cols-1 grid-rows-[52px_minmax(0,1fr)_auto_auto] lg:grid-cols-[264px_minmax(0,1fr)_300px] lg:grid-rows-[52px_minmax(0,1fr)_116px]">
-            <header className="chrome-top col-span-full flex items-center justify-between border-b border-line bg-panel px-4 lg:px-5">
+          <div className="pointer-events-none absolute inset-0 z-0 grid grid-cols-1 grid-rows-[48px_minmax(0,1fr)_auto] lg:grid-cols-[212px_minmax(0,1fr)_300px] lg:grid-rows-[48px_minmax(0,1fr)_104px]">
+            <header className="chrome-top col-span-full flex items-center justify-between gap-3 border-b border-line bg-panel px-3 lg:px-4">
               <div className="flex min-w-0 items-center gap-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/tour/turiya.svg" alt="Turiya" className="h-5 w-auto" />
-                <span className="h-4 w-px bg-line" />
-                <span className="truncate text-dim">{tour.project}</span>
+                <span className="hidden h-4 w-px bg-line sm:block" />
+                <span className="hidden truncate text-dim sm:block">{tour.project}</span>
               </div>
               <span className="hidden text-dim lg:block">{VIEW_LABEL[step]}</span>
-              <span className="publish relative overflow-hidden rounded-full bg-raised px-4 py-1.5 font-medium text-ink ring-1 ring-line">
-                Publish
-                <span className="published invisible absolute inset-0 flex items-center justify-center bg-green text-[#14210d]">Live</span>
-              </span>
+              <div className="flex items-center gap-3">
+                <ul className="flex" aria-label="Team working on this tour">
+                  {TEAM.map((m) => (
+                    <li key={m.name} title={m.name} className="-ml-1.5 flex size-6 items-center justify-center rounded-full text-[10px] font-bold text-[#14210d] ring-2 ring-panel first:ml-0" style={{ background: m.color }}>
+                      {m.name[0]}
+                    </li>
+                  ))}
+                </ul>
+                <span className="publish relative overflow-hidden rounded-full bg-raised px-4 py-1.5 font-medium text-ink ring-1 ring-line">
+                  Publish
+                  <span className="published invisible absolute inset-0 flex items-center justify-center bg-green text-[#14210d]">Live</span>
+                </span>
+              </div>
             </header>
 
-            <aside className="chrome-left hidden flex-col justify-between overflow-hidden border-r border-line bg-panel p-4 lg:flex">
-              <ol className="flex flex-col gap-1">
+            <aside className="chrome-left hidden flex-col justify-between overflow-hidden border-r border-line bg-panel p-3 lg:flex">
+              <ol className="flex flex-col gap-0.5">
                 {STEPS.map((s, i) => (
                   <li key={s.name} aria-current={i === step ? "step" : undefined} className={`rounded-lg px-3 py-2.5 transition-colors duration-300 ${i === step ? "bg-raised" : ""}`}>
-                    <div className="flex items-baseline gap-3">
-                      <span className={`num text-[12px] ${i === step ? "text-green" : "text-dim"}`}>0{i + 1}</span>
-                      <span className={`text-[15px] font-medium ${i === step ? "text-ink" : i < step ? "text-ink/75" : "text-dim"}`}>{s.name}</span>
+                    <div className={`flex items-center gap-2.5 text-[14px] font-medium ${i === step ? "text-ink" : i < step ? "text-ink/75" : "text-dim"}`}>
+                      <span className={i <= step ? "text-green" : ""}>
+                        <Icon>{i < step || done ? <Check /> : ICONS[i]}</Icon>
+                      </span>
+                      {s.name}
                     </div>
-                    <div className={`grid transition-[grid-template-rows,opacity] duration-300 ${i === step ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
-                      <div className="overflow-hidden pl-[30px] text-dim">
-                        <p className="pt-1.5">{s.line}</p>
-                        <span className="mt-3 block h-0.5 overflow-hidden rounded-full bg-line"><span data-i={i} className="prog block h-full origin-left bg-green" style={{ transform: "scaleX(0)" }} /></span>
-                      </div>
-                    </div>
+                    <span className={`mt-2 block h-0.5 overflow-hidden rounded-full bg-line transition-opacity duration-300 ${i === step ? "opacity-100" : "opacity-0"}`}>
+                      <span data-i={i} className="prog block h-full origin-left bg-green" style={{ transform: "scaleX(0)" }} />
+                    </span>
                   </li>
                 ))}
               </ol>
-              <dl className="grid grid-cols-3 gap-2 border-t border-line pt-4">
+              <dl className="grid grid-cols-3 gap-1 border-t border-line pt-3">
                 {[["n-pan", "panoramas"], ["n-hs", "hotspots"], ["n-zones", "zones"]].map(([c, l]) => (
                   <div key={c}>
-                    <dd className={`${c} num display text-[26px] text-ink`}>0</dd>
+                    <dd className={`${c} num display text-[22px] text-ink`}>0</dd>
                     <dt className="text-[11px] text-dim">{l}</dt>
                   </div>
                 ))}
@@ -455,70 +547,100 @@ export default function BuildSection() {
                     </span>
                   ))}
                 </div>
+                <p className="glass num absolute left-3 top-3 rounded-full px-3 py-1.5 text-[11px] lg:left-4 lg:top-4 lg:text-[12px]">
+                  {tour.aerial.lat.toFixed(4)}° N, {tour.aerial.lon.toFixed(4)}° E
+                </p>
               </div>
               <div className="cell-frame absolute inset-0 ring-1 ring-inset ring-line" />
             </div>
 
             <aside className="chrome-right relative hidden border-l border-line bg-panel lg:block">
               <section className="insp insp-0 absolute inset-0 p-5">
-                <h3 className="mb-3 text-[15px] font-medium">Shot list</h3>
-                <dl>
-                  {tour.categories.map((c) => <Field key={c.title} k={c.title} v={String(c.count)} />)}
-                </dl>
-                <p className="mt-4 text-dim">{tour.stats.panoramas} panoramas planned across {tour.stats.zones} zones.</p>
+                <h3 className="mb-1 text-[15px] font-medium">Shot list</h3>
+                <p className="mb-4 text-dim"><span className="n-pan num text-ink">0</span> of {tour.stats.panoramas} stops planned</p>
+                <ul className="flex flex-col gap-3">
+                  {tour.categories.map((c) => (
+                    <li key={c.title}>
+                      <div className="mb-1.5 flex justify-between"><span>{c.title}</span><span className="num text-dim">{c.count}</span></div>
+                      <span className="block h-1 rounded-full bg-raised">
+                        <span className="zone-bar block h-full origin-left rounded-full bg-green" style={{ width: `${Math.max(6, (c.count / MAX_ZONE) * 100)}%` }} />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </section>
               <section className="insp insp-1 absolute inset-0 p-5">
                 <h3 className="mb-3 text-[15px] font-medium">Source photo</h3>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/tour/flat-${tour.hero.id}.webp`} alt="" className="mb-3 aspect-[2/1] w-full rounded-md object-cover" />
+                <img src={`/tour/flat-${tour.hero.id}.webp`} alt="" className="mb-3 aspect-[2/1] w-full rounded-md object-cover ring-1 ring-line" />
                 <dl>
                   <Field k="File" v={tour.hero.file} />
                   <Field k="Stop" v={tour.hero.title} />
+                  <Field k="Covers" v="360° × 180°" />
                   <Field k="Shape" v="Flat, 2:1" />
                 </dl>
               </section>
               <section className="insp insp-2 absolute inset-0 p-5">
-                <h3 className="mb-3 text-[15px] font-medium">Projection</h3>
-                <div className="mb-2 flex justify-between text-dim"><span>Flat</span><span>Sphere</span></div>
-                <div className="bar-track h-1.5 overflow-hidden rounded-full bg-raised"><div className="bar h-full origin-left bg-green" /></div>
-                <dl className="mt-4">
+                <h3 className="mb-4 text-[15px] font-medium">Projection</h3>
+                <Slider />
+                <dl className="mt-5">
                   <Field k="Cube faces" v="6" />
                   <Field k="Face size" v="2250 px" />
+                  <Field k="Guide lines" v="15° apart" />
                 </dl>
               </section>
               <section className="insp insp-3 absolute inset-0 p-5">
-                <h3 className="mb-3 text-[15px] font-medium">Hotspots</h3>
+                <h3 className="mb-1 text-[15px] font-medium">Hotspots</h3>
+                <p className="mb-3 text-dim"><span className="n-hs num text-ink">0</span> across the whole tour</p>
                 <div className="flex flex-col gap-2">
-                  {SPOTS.map((h) => (
-                    <dl key={h.id} className="hs-row rounded-lg bg-raised px-3 py-1">
-                      <Field k={h.kind} v={h.title} />
-                      <Field k="Pan / tilt" v={`${h.pan.toFixed(1)}° / ${h.tilt.toFixed(1)}°`} />
-                    </dl>
-                  ))}
+                  {SPOTS.map((h) => {
+                    const prev = imgPreview(h.target);
+                    return (
+                      <div key={h.id} className="hs-row flex items-center gap-3 rounded-lg bg-raised p-2">
+                        {prev ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={prev} alt="" className="h-11 w-16 shrink-0 rounded object-cover" />
+                        ) : (
+                          <span className="flex h-11 w-16 shrink-0 items-center justify-center rounded bg-line text-orange"><Icon size={18}>{ICONS[3]}</Icon></span>
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{h.title}</p>
+                          <p className="num truncate text-[12px] text-dim">{h.kind}, pan {h.pan.toFixed(0)}° tilt {h.tilt.toFixed(0)}°</p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
               <section className="insp insp-4 absolute inset-0 p-5">
-                <h3 className="mb-3 text-[15px] font-medium">Brand skin</h3>
-                <div className="mb-4 flex h-20 items-center justify-center rounded-md bg-white p-3">
+                <h3 className="mb-3 text-[15px] font-medium">Brand and publish</h3>
+                <div className="mb-3 flex h-16 items-center justify-center rounded-md bg-white p-2.5">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/tour/clientlogo.png" alt="" className="max-h-full" />
                 </div>
-                <div className="swatch mb-3 flex gap-2">
-                  <span className="h-9 flex-1 rounded-md bg-client ring-1 ring-white/20" />
-                  <span className="h-9 flex-1 rounded-md bg-client-accent" />
+                <div className="swatch mb-1 flex gap-2">
+                  <span className="h-8 flex-1 rounded-md bg-client ring-1 ring-white/20" />
+                  <span className="h-8 flex-1 rounded-md bg-client-accent" />
                 </div>
                 <dl>
-                  <Field k="Primary" v="#086139" />
-                  <Field k="Accent" v="#FBB825" />
+                  <Field k="Colours" v="#086139, #FBB825" />
                   <Field k="Typeface" v="Noto Sans" />
                 </dl>
+                <ul className="mt-3 flex flex-col gap-1.5">
+                  {DESTINATIONS.map((d) => (
+                    <li key={d} className="flex items-center justify-between rounded-lg bg-raised px-3 py-2">
+                      {d}
+                      <span className="dest-check flex size-5 items-center justify-center rounded-full bg-green text-[#14210d]"><Icon size={12}><Check /></Icon></span>
+                    </li>
+                  ))}
+                </ul>
               </section>
             </aside>
 
             <div className="chrome-bottom col-span-full border-t border-line bg-panel lg:row-start-3">
-              <ul className="flex h-[84px] gap-2 overflow-hidden px-3 py-3 lg:h-[116px] lg:gap-3 lg:px-5 lg:py-3">
+              <ul className="flex h-[72px] gap-2 overflow-hidden px-3 py-2.5 lg:h-[104px] lg:gap-3 lg:px-4 lg:py-3">
                 {STRIP.map((s) => (
-                  <li key={s.id} className="w-[104px] shrink-0 lg:w-auto lg:min-w-0 lg:flex-1">
+                  <li key={s.id} className="w-[100px] shrink-0 lg:w-auto lg:min-w-0 lg:flex-1">
                     <figure className={`thumb relative ${s.id === tour.hero.id ? "thumb-hero" : ""}`}>
                       <div className="relative">
                         <div className="thumb-box relative aspect-[2/1] overflow-hidden rounded-md border border-dashed border-line">
@@ -532,30 +654,19 @@ export default function BuildSection() {
                   </li>
                 ))}
               </ul>
-              <div className="border-t border-line px-4 pb-5 pt-3 lg:hidden">
-                <div className="mb-2 flex gap-1.5" aria-hidden>
-                  {STEPS.map((s, i) => (
-                    <span key={s.name} className="h-1 flex-1 overflow-hidden rounded-full bg-raised">
-                      <span data-i={i} className="prog block h-full origin-left bg-green" style={{ transform: "scaleX(0)" }} />
-                    </span>
-                  ))}
-                </div>
-                <p className="text-[17px] font-medium text-ink"><span className="num mr-2 text-green">0{step + 1}</span>{STEPS[step].name}</p>
-                <p className="min-h-[3.2em] text-[14px] text-dim">{STEPS[step].line}</p>
-              </div>
             </div>
           </div>
         )}
 
-        {/* The team: stand-in cursors that do the work on desktop */}
+        {/* The team: named cursors that do the work */}
         {!reduced &&
           TEAM.map((m, k) => (
-            <div key={m.name} className={`cursor cur-${k} pointer-events-none absolute left-0 top-0 z-50 hidden lg:block`} aria-hidden>
+            <div key={m.name} className={`cursor cur-${k} pointer-events-none absolute left-0 top-0 z-50`} aria-hidden>
               <span className="click absolute -left-4 -top-4 size-8 rounded-full border-2" style={{ borderColor: m.color }} />
-              <svg width="22" height="26" viewBox="0 0 22 26" className="drop-shadow-[0_2px_4px_rgb(0_0_0/0.5)]">
+              <svg viewBox="0 0 22 26" className="h-[21px] w-[18px] drop-shadow-[0_2px_4px_rgb(0_0_0/0.5)] lg:h-[26px] lg:w-[22px]">
                 <path d="M2 2v19l5.2-4.6 3.4 7.6 3.2-1.4-3.4-7.5H18L2 2z" fill={m.color} stroke="#1d2125" strokeWidth="1.5" strokeLinejoin="round" />
               </svg>
-              <span className="absolute left-4 top-6 whitespace-nowrap rounded-full rounded-tl-sm px-2.5 py-0.5 text-[11px] font-medium text-[#14210d]" style={{ background: m.color }}>
+              <span className="absolute left-3 top-5 whitespace-nowrap rounded-full rounded-tl-sm px-2 py-0.5 text-[10px] font-medium text-[#14210d] lg:left-4 lg:top-6 lg:px-2.5 lg:text-[11px]" style={{ background: m.color }}>
                 {m.name}
               </span>
             </div>
@@ -563,32 +674,35 @@ export default function BuildSection() {
       </div>
 
       {!reduced && (
-        <footer className="flex shrink-0 items-center gap-3 lg:gap-5">
+        <footer className="flex shrink-0 items-center gap-2 lg:gap-5">
           <button
             type="button"
-            onClick={() => replay.current()}
-            className="flex h-11 items-center gap-2 rounded-full bg-raised px-4 text-[14px] font-medium text-ink ring-1 ring-line transition-colors hover:bg-line"
+            onClick={() => control.current.replay()}
+            aria-label="Replay"
+            className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-raised px-3.5 text-[14px] font-medium text-ink ring-1 ring-line transition-colors hover:bg-line lg:px-4"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M2.5 8a5.5 5.5 0 1 0 1.7-4" />
-              <path d="M2.5 2.5v3h3" />
-            </svg>
-            Replay
+            <Icon><path d="M2.5 8a5.5 5.5 0 1 0 1.7-4" /><path d="M2.5 2.5v3h3" /></Icon>
+            <span className="hidden sm:inline">Replay</span>
           </button>
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <span className="num hidden w-[19ch] whitespace-nowrap text-[13px] text-dim sm:block">{done ? "Tour is live" : `Step ${step + 1} of 5, ${STEPS[step].name}`}</span>
-            <span className="h-1 flex-1 overflow-hidden rounded-full bg-raised" role="presentation">
-              <span data-i={-1} className="prog block h-full origin-left bg-green" style={{ transform: "scaleX(0)" }} />
-            </span>
-          </div>
+          <ol className="flex min-w-0 flex-1 gap-1.5 lg:gap-2" aria-label="Chapters">
+            {STEPS.map((s, i) => (
+              <li key={s.name} className="min-w-0 flex-1">
+                <button type="button" onClick={() => control.current.jump(i)} aria-label={`Play from step ${i + 1}, ${s.name}`} className="group flex h-11 w-full flex-col justify-center gap-1.5 text-left">
+                  <span className={`hidden truncate text-[12px] transition-colors sm:block ${i === step && !done ? "text-ink" : "text-dim group-hover:text-ink"}`}>{s.name}</span>
+                  <span className="block h-1 overflow-hidden rounded-full bg-raised">
+                    <span data-i={i} className="prog block h-full origin-left bg-green" style={{ transform: "scaleX(0)" }} />
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
           <a
             href="#next"
-            className={`flex h-11 items-center gap-2 rounded-full px-5 text-[14px] font-medium transition-colors duration-500 ${done ? "bg-green text-[#14210d]" : "bg-raised text-ink ring-1 ring-line"}`}
+            className={`flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-[14px] font-medium transition-colors duration-500 lg:px-5 ${done ? "bg-green text-[#14210d]" : "bg-raised text-ink ring-1 ring-line"}`}
           >
-            Keep scrolling
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M8 2.5v11M3.5 9 8 13.5 12.5 9" />
-            </svg>
+            <span className="hidden sm:inline">Keep scrolling</span>
+            <span className="sm:hidden">Next</span>
+            <Icon><path d="M8 2.5v11M3.5 9 8 13.5 12.5 9" /></Icon>
           </a>
         </footer>
       )}
