@@ -9,6 +9,7 @@
   --color-gold: #ffd700;
   --color-charcoal: #343a40;
   --color-ink: #10190b;
+  --color-mist: #edf2e9;
 
   /* Editor surfaces, built off their charcoal */
   --color-pit: #14181b;
@@ -116,9 +117,20 @@ html {
 }
 .hero-script {
   font-family: var(--font-script), serif;
-  font-weight: 400;
   font-style: italic;
-  font-size: 1.12em;
-  letter-spacing: -0.01em;
+  font-weight: 400;
+  font-variation-settings: "SOFT" 100, "WONK" 0, "opsz" 144;
+  font-size: 1.02em;
+  letter-spacing: -0.03em;
+  line-height: 0.85;
+}
+
+/* Footer wordmark */
+.wordmark {
+  font-family: var(--font-bric), var(--font-sans);
+  font-variation-settings: "wdth" 75;
+  font-weight: 800;
+  font-size: min(31vw, 46svh);
   line-height: 0.8;
+  letter-spacing: -0.04em;
 }

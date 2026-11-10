@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Instrument_Serif, Roboto_Flex } from "next/font/google";
+import { Bricolage_Grotesque, Fraunces, Roboto_Flex } from "next/font/google";
 import "./globals.css";
 
 const flex = Roboto_Flex({
@@ -8,9 +8,9 @@ const flex = Roboto_Flex({
   variable: "--font-flex",
 });
 
-// Hero headline: a heavy, tight grotesque, with one word set in an italic serif.
+// Hero headline: a heavy, tight grotesque, with one word set in a soft, heavy italic.
 const bric = Bricolage_Grotesque({ subsets: ["latin"], axes: ["wdth"], variable: "--font-bric" });
-const script = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "italic", variable: "--font-script" });
+const script = Fraunces({ subsets: ["latin"], style: "italic", axes: ["SOFT", "WONK", "opsz"], variable: "--font-script" });
 
 export const metadata: Metadata = {
   title: "Turiya, places you can walk into",

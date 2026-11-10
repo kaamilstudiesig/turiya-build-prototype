@@ -105,7 +105,7 @@ const debug = process.env.DEBUG === "1";
 
 // 0. Panorama strips for the hero pills: the band around the horizon, which loops seamlessly.
 // Run on their own with ONLY=pills.
-for (const id of ["node31", "node78", "node15"]) {
+for (const id of ["node31", "node78", "node15", "node24"]) {
   const cube = await loadCube(id);
   const img = await equirect(cube, 2000).png().toBuffer();
   await sharp(img).extract({ left: 0, top: 290, width: 2000, height: 440 }).webp({ quality: 76 }).toFile(path.join(OUT, `pill-${id}.webp`));
