@@ -8,6 +8,7 @@
   --color-orange: #f89833;
   --color-gold: #ffd700;
   --color-charcoal: #343a40;
+  --color-ink: #10190b;
 
   /* Editor surfaces, built off their charcoal */
   --color-pit: #14181b;
@@ -15,7 +16,7 @@
   --color-panel: #262b30;
   --color-raised: #2f353b;
   --color-line: #414950;
-  --color-ink: #eef1f3;
+  --color-paper: #eef1f3;
   --color-dim: #9ba5ae;
 
   /* Abhishta's colours, sampled from the client logo in the tour package */
@@ -29,7 +30,7 @@ html {
 
 body {
   background: var(--color-canvas);
-  color: var(--color-ink);
+  color: var(--color-paper);
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 1.5;
@@ -97,4 +98,27 @@ html {
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 8px 21px -8px rgb(0 0 0 / 0.45);
   color: #fff;
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.8), 0 0 13px rgb(0 0 0 / 0.6);
+}
+
+/* Hero headline */
+.hero-type {
+  font-family: var(--font-bric), var(--font-sans);
+  font-variation-settings: "wdth" 75;
+  font-weight: 800;
+  font-size: 19vw;
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+}
+@media (min-width: 1024px) {
+  .hero-type {
+    font-size: min(11.4vw, 20svh);
+  }
+}
+.hero-script {
+  font-family: var(--font-script), serif;
+  font-weight: 400;
+  font-style: italic;
+  font-size: 1.12em;
+  letter-spacing: -0.01em;
+  line-height: 0.8;
 }

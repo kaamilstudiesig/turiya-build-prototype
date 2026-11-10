@@ -49,7 +49,7 @@ const Check = () => <path d="M3.5 8.5l3 3 6-7" />;
 const Field = ({ k, v }: { k: string; v: string }) => (
   <div className="flex items-baseline justify-between gap-3 border-b border-line/60 py-2 last:border-0">
     <dt className="text-dim">{k}</dt>
-    <dd className="num truncate text-right text-ink">{v}</dd>
+    <dd className="num truncate text-right text-paper">{v}</dd>
   </div>
 );
 
@@ -457,7 +457,7 @@ export default function BuildSection() {
                       <span className="hs-prev absolute bottom-5 left-0 block w-40 -translate-x-1/2 overflow-hidden rounded-lg border border-white/40 bg-canvas shadow-[0_8px_21px_rgb(0_0_0/0.5)] lg:w-48">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={prev} alt="" className="aspect-[300/126] w-full object-cover" />
-                        <span className="block px-2.5 py-1.5 text-[11px] text-dim">Opens <span className="text-ink">{h.title}</span></span>
+                        <span className="block px-2.5 py-1.5 text-[11px] text-dim">Opens <span className="text-paper">{h.title}</span></span>
                       </span>
                     )}
                   </div>
@@ -535,7 +535,7 @@ export default function BuildSection() {
               </div>
               <span className="hidden text-dim lg:block">{VIEW_LABEL[step]}</span>
               <div className="flex items-center gap-3">
-                <span className="publish relative inline-block overflow-hidden rounded-full bg-raised px-4 py-1.5 font-medium text-ink ring-1 ring-line">
+                <span className="publish relative inline-block overflow-hidden rounded-full bg-raised px-4 py-1.5 font-medium text-paper ring-1 ring-line">
                   Publish
                   <span className="published invisible absolute inset-0 flex items-center justify-center bg-green text-[#14210d]">Live</span>
                 </span>
@@ -546,7 +546,7 @@ export default function BuildSection() {
               <ol className="flex flex-col gap-0.5">
                 {STEPS.map((s, i) => (
                   <li key={s.name} aria-current={i === step ? "step" : undefined} className={`rounded-lg px-3 py-2.5 transition-colors duration-300 ${i === step ? "bg-raised" : ""}`}>
-                    <div className={`flex items-center gap-2.5 text-[14px] font-medium ${i === step ? "text-ink" : i < step ? "text-ink/75" : "text-dim"}`}>
+                    <div className={`flex items-center gap-2.5 text-[14px] font-medium ${i === step ? "text-paper" : i < step ? "text-paper/75" : "text-dim"}`}>
                       <span className={i <= step ? "text-green" : ""}>
                         <Icon>{i < step || done ? <Check /> : ICONS[i]}</Icon>
                       </span>
@@ -561,7 +561,7 @@ export default function BuildSection() {
               <dl className="grid grid-cols-3 gap-1 border-t border-line pt-3">
                 {[["n-pan", "panoramas"], ["n-hs", "hotspots"], ["n-zones", "zones"]].map(([c, l]) => (
                   <div key={c}>
-                    <dd className={`${c} num display text-[22px] text-ink`}>0</dd>
+                    <dd className={`${c} num display text-[22px] text-paper`}>0</dd>
                     <dt className="text-[11px] text-dim">{l}</dt>
                   </div>
                 ))}
@@ -584,7 +584,7 @@ export default function BuildSection() {
                       <span className="pin-ring absolute -left-2 -top-2 size-4 rounded-full border border-green" />
                       <span className="pin-ring absolute -left-2 -top-2 size-4 rounded-full border border-green" />
                       <span className="absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-green bg-white shadow-[0_2px_8px_rgb(0_0_0/0.5)]" />
-                      <span className={`absolute top-0 -translate-y-1/2 whitespace-nowrap rounded-full bg-canvas/90 px-2.5 py-0.5 text-[11px] text-ink ${p.x > 0.5 ? "right-3.5" : "left-3.5"}`}>{p.title}</span>
+                      <span className={`absolute top-0 -translate-y-1/2 whitespace-nowrap rounded-full bg-canvas/90 px-2.5 py-0.5 text-[11px] text-paper ${p.x > 0.5 ? "right-3.5" : "left-3.5"}`}>{p.title}</span>
                     </span>
                   ))}
                 </div>
@@ -599,7 +599,7 @@ export default function BuildSection() {
             <aside className="chrome-right relative hidden border-l border-line bg-panel lg:block">
               <section className="insp insp-0 absolute inset-0 p-5">
                 <h3 className="mb-1 text-[15px] font-medium">Shot list</h3>
-                <p className="mb-4 text-dim"><span className="n-pan num text-ink">0</span> of {tour.stats.panoramas} stops planned</p>
+                <p className="mb-4 text-dim"><span className="n-pan num text-paper">0</span> of {tour.stats.panoramas} stops planned</p>
                 <ul className="flex flex-col gap-3">
                   {tour.categories.map((c) => (
                     <li key={c.title}>
@@ -633,7 +633,7 @@ export default function BuildSection() {
               </section>
               <section className="insp insp-3 absolute inset-0 p-5">
                 <h3 className="mb-1 text-[15px] font-medium">Hotspots</h3>
-                <p className="mb-3 text-dim"><span className="n-hs num text-ink">0</span> across the whole tour</p>
+                <p className="mb-3 text-dim"><span className="n-hs num text-paper">0</span> across the whole tour</p>
                 <div className="flex flex-col gap-2">
                   {SPOTS.map((h) => {
                     const prev = imgPreview(h.target);
@@ -736,7 +736,7 @@ export default function BuildSection() {
             type="button"
             onClick={() => control.current.replay()}
             aria-label="Replay"
-            className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-raised px-3.5 text-[14px] font-medium text-ink ring-1 ring-line transition-colors hover:bg-line lg:px-4"
+            className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-raised px-3.5 text-[14px] font-medium text-paper ring-1 ring-line transition-colors hover:bg-line lg:px-4"
           >
             <Icon><path d="M2.5 8a5.5 5.5 0 1 0 1.7-4" /><path d="M2.5 2.5v3h3" /></Icon>
             <span className="hidden sm:inline">Replay</span>
@@ -745,7 +745,7 @@ export default function BuildSection() {
             {STEPS.map((s, i) => (
               <li key={s.name} className="min-w-0 flex-1">
                 <button type="button" onClick={() => control.current.jump(i)} aria-label={`Play from step ${i + 1}, ${s.name}`} className="group flex h-11 w-full flex-col justify-center gap-1.5 text-left">
-                  <span className={`hidden truncate text-[12px] transition-colors sm:block ${i === step && !done ? "text-ink" : "text-dim group-hover:text-ink"}`}>{s.name}</span>
+                  <span className={`hidden truncate text-[12px] transition-colors sm:block ${i === step && !done ? "text-paper" : "text-dim group-hover:text-paper"}`}>{s.name}</span>
                   <span className="block h-1 overflow-hidden rounded-full bg-raised">
                     <span data-i={i} className="prog block h-full origin-left bg-green" style={{ transform: "scaleX(0)" }} />
                   </span>
@@ -755,7 +755,7 @@ export default function BuildSection() {
           </ol>
           <a
             href="#next"
-            className={`flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-[14px] font-medium transition-colors duration-500 lg:px-5 ${done ? "bg-green text-[#14210d]" : "bg-raised text-ink ring-1 ring-line"}`}
+            className={`flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-[14px] font-medium transition-colors duration-500 lg:px-5 ${done ? "bg-green text-[#14210d]" : "bg-raised text-paper ring-1 ring-line"}`}
           >
             <span className="hidden sm:inline">Keep scrolling</span>
             <span className="sm:hidden">Next</span>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Roboto_Flex } from "next/font/google";
+import { Bricolage_Grotesque, Instrument_Serif, Roboto_Flex } from "next/font/google";
 import "./globals.css";
 
 const flex = Roboto_Flex({
@@ -8,15 +8,19 @@ const flex = Roboto_Flex({
   variable: "--font-flex",
 });
 
+// Hero headline: a heavy, tight grotesque, with one word set in an italic serif.
+const bric = Bricolage_Grotesque({ subsets: ["latin"], axes: ["wdth"], variable: "--font-bric" });
+const script = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "italic", variable: "--font-script" });
+
 export const metadata: Metadata = {
-  title: "How a Turiya tour gets built",
+  title: "Turiya, places you can walk into",
   description:
-    "Scroll to watch a farm stay go from a drone map to a published 360° virtual tour.",
+    "Turiya turns real places into 360° virtual tours for web, Google Maps and VR.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${flex.variable} antialiased`}>
+    <html lang="en" className={`${flex.variable} ${bric.variable} ${script.variable} antialiased`}>
       <body>{children}</body>
     </html>
   );

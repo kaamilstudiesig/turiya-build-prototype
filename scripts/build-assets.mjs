@@ -103,6 +103,18 @@ const STRIP = ["node46", "node11", "node15", "node30", "node31", "node52", "node
 
 const debug = process.env.DEBUG === "1";
 
+// 0. Panorama strips for the hero pills: the band around the horizon, which loops seamlessly.
+// Run on their own with ONLY=pills.
+for (const id of ["node31", "node78", "node15"]) {
+  const cube = await loadCube(id);
+  const img = await equirect(cube, 2000).png().toBuffer();
+  await sharp(img).extract({ left: 0, top: 290, width: 2000, height: 440 }).webp({ quality: 76 }).toFile(path.join(OUT, `pill-${id}.webp`));
+}
+if (process.env.ONLY === "pills") {
+  console.log("pills done");
+  process.exit(0);
+}
+
 // 1. Aerial map
 {
   const cube = await loadCube("node47");
